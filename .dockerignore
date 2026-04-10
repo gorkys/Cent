@@ -1,0 +1,14 @@
+node_modules
+dist
+dist-ssr
+.git
+.github
+.vscode
+.idea
+*.log
+tmp-*
+.env
+*.local
+server/.env
+Cent-main.zip
+

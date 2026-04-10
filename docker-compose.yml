@@ -1,0 +1,79 @@
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-cent}
+      MYSQL_USER: ${MYSQL_USER:-cent}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change-me}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      MYSQL_API_HOST: 0.0.0.0
+      MYSQL_API_PORT: 8787
+      MYSQL_API_AUTH_SECRET: ${MYSQL_API_AUTH_SECRET:-change-me-before-production-deploy}
+      MYSQL_API_CORS_ORIGIN: ${MYSQL_API_CORS_ORIGIN:-http://localhost:8080}
+      MYSQL_API_PUBLIC_BASE_URL: ${MYSQL_API_PUBLIC_BASE_URL:-}
+      MYSQL_API_BODY_LIMIT_MB: ${MYSQL_API_BODY_LIMIT_MB:-15}
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: ${MYSQL_USER:-cent}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change-me}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-cent}
+      MYSQL_CONNECTION_LIMIT: ${MYSQL_CONNECTION_LIMIT:-10}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8787/api/mysql/health').then((response)=>{if(!response.ok)process.exit(1);}).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_GTAG_SCRIPT: ${VITE_GTAG_SCRIPT:-}
+        VITE_LOGIN_API_HOST: ${VITE_LOGIN_API_HOST:-http://localhost}
+        VITE_MYSQL_API_HOST: ${VITE_MYSQL_API_HOST:-/api/mysql}
+        VITE_MYSQL_PROXY_TARGET: ${VITE_MYSQL_PROXY_TARGET:-http://127.0.0.1:8787}
+        VITE_RATE_API_HOST: ${VITE_RATE_API_HOST:-http://localhost}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-8080}:80"
+
+volumes:
+  mysql-data:
+

@@ -1,0 +1,286 @@
+# Cent
+
+MySQL self-hosted edition based on the original [glink25/Cent](https://github.com/glink25/Cent).
+
+This version keeps the original frontend ledger model, IndexedDB local cache, sync scheduling, and analytics, while changing the default self-hosted path to:
+
+- `Username/password registration and login`
+- `Node.js API + MySQL persistence`
+- `Docker-based deployment`
+
+The default deployment topology is `nginx + frontend + api + mysql`.
+
+## Project Scope
+
+Cent is still a ledger-focused accounting app centered around books, bills, categories, tags, budgets, and statistics.
+
+This upgrade does not rewrite the bill business layer. Instead, it adds a MySQL endpoint on top of the existing storage abstraction, so these capabilities remain intact:
+
+- Multiple books
+- Local IndexedDB cache
+- Batch sync
+- Collaborator support
+- Image attachments
+- Analytics, budgets, tags, and categories
+
+## What Was Upgraded
+
+### 1. Added a MySQL backend
+
+The backend lives in [`server/`](./server) and is responsible for:
+
+- User registration and username/password login
+- Book and membership management
+- Bill and metadata persistence
+- Attachment storage
+- Automatic MySQL schema initialization
+
+Key files:
+
+- [`server/index.mjs`](./server/index.mjs)
+- [`server/db.mjs`](./server/db.mjs)
+- [`server/repository.mjs`](./server/repository.mjs)
+- [`server/auth.mjs`](./server/auth.mjs)
+
+### 2. Added a MySQL storage endpoint in the frontend
+
+The frontend integrates MySQL through the existing storage abstraction. Main files:
+
+- [`src/api/endpoints/mysql/index.ts`](./src/api/endpoints/mysql/index.ts)
+- [`src/api/endpoints/mysql/client.ts`](./src/api/endpoints/mysql/client.ts)
+- [`src/api/endpoints/mysql/storage.ts`](./src/api/endpoints/mysql/storage.ts)
+- [`src/api/endpoints/mysql/auth.ts`](./src/api/endpoints/mysql/auth.ts)
+
+Local cache and sync state handling are still kept on the client side. MySQL is used as the remote persistence layer.
+
+### 3. Added username/password login entry points
+
+The login page now supports:
+
+- `Username/password login`
+- `Register account`
+
+Users can register, create a book, and start recording immediately.
+
+### 4. Added first-class Docker deployment support
+
+The project now includes:
+
+- [`Dockerfile`](./Dockerfile)
+- [`server/Dockerfile`](./server/Dockerfile)
+- [`docker-compose.yml`](./docker-compose.yml)
+- [`docker/nginx/default.conf`](./docker/nginx/default.conf)
+- [`.dockerignore`](./.dockerignore)
+- [`.env.docker.example`](./.env.docker.example)
+
+## Directory Overview
+
+```text
+.
+├─ src/                      # Frontend React + Vite code
+├─ server/                   # Node.js + MySQL API
+├─ docker/nginx/             # Nginx reverse proxy config
+├─ docs/                     # Extra docs
+├─ Dockerfile                # Frontend production image
+├─ server/Dockerfile         # Backend production image
+└─ docker-compose.yml        # Default deployment orchestration
+```
+
+## Local Development
+
+### Requirements
+
+- Node.js 20+
+- pnpm
+- MySQL 8+
+
+### Frontend environment variables
+
+Copy [`.env.example`](./.env.example):
+
+```bash
+cp .env.example .env.local
+```
+
+Important defaults:
+
+```env
+VITE_MYSQL_API_HOST="/api/mysql"
+VITE_MYSQL_PROXY_TARGET="http://127.0.0.1:8787"
+```
+
+This means:
+
+- During local `vite dev`, `/api/mysql` is proxied to `127.0.0.1:8787`
+- In Docker deployment, the frontend still uses `/api/mysql`, and Nginx forwards it to the API container
+
+### Backend environment variables
+
+Copy [`server/.env.example`](./server/.env.example):
+
+```bash
+cp server/.env.example server/.env
+```
+
+Then update the local MySQL connection:
+
+```env
+MYSQL_HOST=127.0.0.1
+MYSQL_PORT=3306
+MYSQL_USER=root
+MYSQL_PASSWORD=replace-me
+MYSQL_DATABASE=cent
+```
+
+### Start locally
+
+```bash
+pnpm install
+npm run server
+pnpm dev
+```
+
+After startup:
+
+- Frontend: `http://localhost:5173`
+- Backend: `http://127.0.0.1:8787/api/mysql`
+
+Open the login page and use `Register account` or `Username/password login` to enter the MySQL flow.
+
+## Docker Deployment
+
+### Default architecture
+
+`docker-compose.yml` starts three services:
+
+- `mysql`: MySQL 8 container with data stored in the `mysql-data` volume
+- `api`: Node.js API container for auth, books, bills, and attachments
+- `web`: Nginx container serving the frontend and proxying `/api/mysql`
+
+### Step 1: prepare environment variables
+
+Copy the Docker env template:
+
+```bash
+cp .env.docker.example .env
+```
+
+At minimum, update these values:
+
+```env
+WEB_PORT=8080
+
+MYSQL_ROOT_PASSWORD=replace-with-a-strong-root-password
+MYSQL_DATABASE=cent
+MYSQL_USER=cent
+MYSQL_PASSWORD=replace-with-a-strong-app-password
+
+MYSQL_API_AUTH_SECRET=replace-with-a-long-random-secret
+MYSQL_API_CORS_ORIGIN=http://localhost:8080
+```
+
+Notes:
+
+- `MYSQL_API_AUTH_SECRET` must be replaced with a strong random string
+- `MYSQL_API_CORS_ORIGIN` must match the actual frontend address
+- If you later use a domain name, update it here as well
+
+### Step 2: build and start
+
+```bash
+docker compose up -d --build
+```
+
+Then open:
+
+```text
+http://localhost:8080
+```
+
+### Step 3: initialize the app
+
+1. Open the homepage
+2. Click `Register account`
+3. Create the first user
+4. Create a book
+5. Start recording bills
+
+### Common commands
+
+Check service status:
+
+```bash
+docker compose ps
+```
+
+View logs:
+
+```bash
+docker compose logs -f web
+docker compose logs -f api
+docker compose logs -f mysql
+```
+
+Stop services:
+
+```bash
+docker compose down
+```
+
+Remove containers and wipe database data:
+
+```bash
+docker compose down -v
+```
+
+`docker compose down -v` removes the MySQL volume and is irreversible unless you have a backup.
+
+## Production Recommendations
+
+The default Docker setup is enough to boot the project, but for long-term use you should still:
+
+- Use a domain and terminate HTTPS at Nginx or an upstream gateway
+- Replace all default passwords and `MYSQL_API_AUTH_SECRET`
+- Back up the MySQL volume regularly
+- Move attachments to object storage later if attachment volume grows
+
+## Updating After You Push to GitHub
+
+Once this code is on GitHub, the server-side update path can stay simple:
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+If you only changed backend logic and did not modify frontend build variables, you can rebuild only the API:
+
+```bash
+docker compose up -d --build api
+```
+
+If you changed `VITE_*` variables, rebuild the `web` image as well:
+
+```bash
+docker compose up -d --build web
+```
+
+## What Has Been Verified
+
+This version has already been validated with:
+
+- `npm run lint`
+- `npm run build`
+- MySQL registration
+- MySQL login
+- Book creation
+- Browser-side bill creation
+- Bill sync into MySQL
+
+## License
+
+This fork continues to use the original license: `CC BY-NC-SA 4.0`
+
+## Upstream Project
+
+- Upstream: [glink25/Cent](https://github.com/glink25/Cent)
