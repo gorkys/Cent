@@ -265,6 +265,51 @@ If you changed `VITE_*` variables, rebuild the `web` image as well:
 docker compose up -d --build web
 ```
 
+## Syncing with Upstream glink25/Cent
+
+This repository was not originally created from a fork clone. Its upstream history was linked later with a non-destructive merge that preserved the current working tree, so future upstream updates can now use standard Git merges.
+
+If you clone your own repository on another machine, add the upstream remote first:
+
+```bash
+git remote add upstream https://github.com/glink25/Cent.git
+```
+
+Recommended flow for syncing the upstream main branch:
+
+```bash
+git checkout main
+git fetch upstream
+git merge upstream/main
+```
+
+If merge conflicts happen, check these areas first:
+
+- `server/`
+- `src/api/endpoints/mysql/`
+- `src/components/login/index.tsx`
+- `src/components/settings/user.tsx`
+- `Dockerfile`
+- `server/Dockerfile`
+- `docker-compose.yml`
+- `docker/nginx/default.conf`
+- `README.md`
+- `README_EN.md`
+
+After syncing, validate and push back to your own repository:
+
+```bash
+npm run lint
+npm run build
+git push origin main
+```
+
+If the server is already running the Docker deployment, then also run:
+
+```bash
+docker compose up -d --build
+```
+
 ## What Has Been Verified
 
 This version has already been validated with:

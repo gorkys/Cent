@@ -265,6 +265,51 @@ docker compose up -d --build api
 docker compose up -d --build web
 ```
 
+## 如何同步上游 glink25/Cent
+
+这个仓库最初不是通过 fork clone 下来的，而是后补的 Git 历史。因此已经额外做过一次“保留当前工作树内容”的上游历史连接，后续可以按标准 Git 方式同步上游。
+
+如果你换了一台机器重新 clone 自己的仓库，先补上 `upstream`：
+
+```bash
+git remote add upstream https://github.com/glink25/Cent.git
+```
+
+后续同步上游主分支的常规流程：
+
+```bash
+git checkout main
+git fetch upstream
+git merge upstream/main
+```
+
+如果 merge 过程中出现冲突，优先检查这些位置：
+
+- `server/`
+- `src/api/endpoints/mysql/`
+- `src/components/login/index.tsx`
+- `src/components/settings/user.tsx`
+- `Dockerfile`
+- `server/Dockerfile`
+- `docker-compose.yml`
+- `docker/nginx/default.conf`
+- `README.md`
+- `README_EN.md`
+
+同步完成后，建议立即验证并推回自己的仓库：
+
+```bash
+npm run lint
+npm run build
+git push origin main
+```
+
+如果服务器已经部署了 Docker 版本，再执行：
+
+```bash
+docker compose up -d --build
+```
+
 ## 已验证内容
 
 当前版本已经完成以下验证：
