@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd());
     const shouldAnalyze = process.env.ANALYZE === "true";
     const postgresProxyTarget =
-        env.VITE_POSTGRES_PROXY_TARGET || "http://127.0.0.1:8787";
+        env.VITE_POSTGRES_PROXY_TARGET || "http://127.0.0.1:3459";
 
     const plugins: PluginOption[] = [
         Info(),

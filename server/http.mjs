@@ -50,11 +50,43 @@ export const applyCors = (request, response) => {
     response.setHeader("Access-Control-Allow-Credentials", "true");
 };
 
+const getHeaderValue = (value) => {
+    if (Array.isArray(value)) {
+        return value[0];
+    }
+    return value;
+};
+
+const withForwardedPort = (host, port, protocol) => {
+    if (!host || !port) {
+        return host;
+    }
+    if (host.startsWith("[")) {
+        return host.includes("]:") ? host : `${host}:${port}`;
+    }
+    const lastColonIndex = host.lastIndexOf(":");
+    if (lastColonIndex >= 0 && /^\d+$/.test(host.slice(lastColonIndex + 1))) {
+        return host;
+    }
+    if (
+        (protocol === "http" && port === "80") ||
+        (protocol === "https" && port === "443")
+    ) {
+        return host;
+    }
+    return `${host}:${port}`;
+};
+
 export const getRequestUrl = (request) => {
     const protocol =
-        request.headers["x-forwarded-proto"] ??
+        getHeaderValue(request.headers["x-forwarded-proto"]) ??
         (request.socket.encrypted ? "https" : "http");
-    const host = request.headers["x-forwarded-host"] ?? request.headers.host;
+    const host = withForwardedPort(
+        getHeaderValue(request.headers["x-forwarded-host"]) ??
+            getHeaderValue(request.headers.host),
+        getHeaderValue(request.headers["x-forwarded-port"]),
+        protocol,
+    );
     return new URL(request.url, `${protocol}://${host}`);
 };
 

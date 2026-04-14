@@ -19,5 +19,11 @@ docker compose up -d --build
 然后访问：
 
 ```text
-http://localhost:8080
+http://localhost:3458
+```
+
+后端健康检查默认地址：
+
+```text
+http://localhost:3459/api/postgres/health
 ```

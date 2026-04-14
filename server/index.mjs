@@ -22,14 +22,20 @@ import {
     createAsset,
     createBook,
     createUser,
+    countUsers,
+    deleteUser,
     deleteBook,
     findUserById,
     findUserByUsername,
+    getAuthSettings,
     getAsset,
     getBookSnapshot,
     listBooksForUser,
     listCollaborators,
+    listUsers,
     toUserInfoPayload,
+    updateAuthSettings,
+    updateUser,
 } from "./repository.mjs";
 
 const API_BASE_PATH = "/api/postgres";
@@ -49,6 +55,13 @@ const requireString = (value, label, { min = 1, max = 255 } = {}) => {
     return text;
 };
 
+const requireBoolean = (value, label) => {
+    if (typeof value !== "boolean") {
+        throw withStatus(`${label} is invalid.`, 400);
+    }
+    return value;
+};
+
 const requireUser = async (request) => {
     const token = pickTokenFromHeader(request.headers.authorization);
     const payload = verifyAccessToken(token);
@@ -62,6 +75,12 @@ const requireUser = async (request) => {
     return user;
 };
 
+const requireAdmin = (user) => {
+    if (!user?.is_admin) {
+        throw withStatus("Admin permission required.", 403);
+    }
+};
+
 const buildAuthResponse = (requestUrl, user) => ({
     token: createAccessToken(user),
     user: toUserInfoPayload(user),
@@ -70,6 +89,11 @@ const buildAuthResponse = (requestUrl, user) => ({
 
 const handleRegister = async (request, response, requestUrl) => {
     const body = await readJsonBody(request);
+    const userCount = await countUsers();
+    const authSettings = await getAuthSettings();
+    if (userCount > 0 && !authSettings.registrationEnabled) {
+        throw withStatus("Registration is disabled.", 403);
+    }
     const username = requireString(body.username, "username", {
         min: 3,
         max: 64,
@@ -91,7 +115,12 @@ const handleRegister = async (request, response, requestUrl) => {
         throw withStatus("Username already exists.", 400);
     }
     const passwordHash = await hashPassword(password);
-    const user = await createUser({ username, passwordHash, displayName });
+    const user = await createUser({
+        username,
+        passwordHash,
+        displayName,
+        isAdmin: userCount === 0,
+    });
     json(response, 200, buildAuthResponse(requestUrl, user));
 };
 
@@ -112,6 +141,88 @@ const handleLogin = async (request, response, requestUrl) => {
     json(response, 200, buildAuthResponse(requestUrl, user));
 };
 
+const handleAdminCreateUser = async (request, response) => {
+    const body = await readJsonBody(request);
+    const username = requireString(body.username, "username", {
+        min: 3,
+        max: 64,
+    }).toLowerCase();
+    const password = requireString(body.password, "password", {
+        min: 6,
+        max: 128,
+    });
+    const displayName = requireString(
+        body.displayName || body.username,
+        "displayName",
+        {
+            min: 1,
+            max: 128,
+        },
+    );
+    const isAdmin = body.isAdmin === undefined ? false : Boolean(body.isAdmin);
+    const existed = await findUserByUsername(username);
+    if (existed) {
+        throw withStatus("Username already exists.", 400);
+    }
+    const passwordHash = await hashPassword(password);
+    const user = await createUser({
+        username,
+        passwordHash,
+        displayName,
+        isAdmin,
+    });
+    json(response, 200, { user: toUserInfoPayload(user) });
+};
+
+const handleAdminUpdateUser = async (request, response, userId) => {
+    const body = await readJsonBody(request);
+    const existing = await findUserById(userId);
+    if (!existing) {
+        throw withStatus("Target user not found.", 404);
+    }
+    const username =
+        body.username === undefined
+            ? undefined
+            : requireString(body.username, "username", {
+                  min: 3,
+                  max: 64,
+              }).toLowerCase();
+    if (username && username !== existing.username) {
+        const duplicate = await findUserByUsername(username);
+        if (duplicate && `${duplicate.id}` !== `${userId}`) {
+            throw withStatus("Username already exists.", 400);
+        }
+    }
+    const displayName =
+        body.displayName === undefined
+            ? undefined
+            : requireString(body.displayName, "displayName", {
+                  min: 1,
+                  max: 128,
+              });
+    const passwordHash =
+        body.password === undefined || body.password === ""
+            ? undefined
+            : await hashPassword(
+                  requireString(body.password, "password", {
+                      min: 6,
+                      max: 128,
+                  }),
+              );
+    const isAdmin =
+        body.isAdmin === undefined
+            ? undefined
+            : requireBoolean(body.isAdmin, "isAdmin");
+    const user = await updateUser({
+        userId,
+        username,
+        displayName,
+        passwordHash,
+        isAdmin,
+    });
+    json(response, 200, { user: toUserInfoPayload(user) });
+};
+
 const server = http.createServer(async (request, response) => {
     applyCors(request, response);
     if (request.method === "OPTIONS") {
@@ -125,6 +236,14 @@ const server = http.createServer(async (request, response) => {
     try {
         if (request.method === "GET" && pathname === `${API_BASE_PATH}/health`) {
             json(response, 200, { ok: true });
+            return;
+        }
+
+        if (
+            request.method === "GET" &&
+            pathname === `${API_BASE_PATH}/auth/settings`
+        ) {
+            json(response, 200, await getAuthSettings());
             return;
         }
 
@@ -148,6 +267,70 @@ const server = http.createServer(async (request, response) => {
 
         if (request.method === "GET" && pathname === `${API_BASE_PATH}/me`) {
             json(response, 200, { user: toUserInfoPayload(user) });
+            return;
+        }
+
+        if (
+            request.method === "GET" &&
+            pathname === `${API_BASE_PATH}/admin/bootstrap`
+        ) {
+            requireAdmin(user);
+            json(response, 200, {
+                users: await listUsers(),
+                auth: await getAuthSettings(),
+            });
+            return;
+        }
+
+        if (
+            request.method === "PATCH" &&
+            pathname === `${API_BASE_PATH}/admin/settings/auth`
+        ) {
+            requireAdmin(user);
+            const body = await readJsonBody(request);
+            json(response, 200, {
+                auth: await updateAuthSettings({
+                    registrationEnabled: requireBoolean(
+                        body.registrationEnabled,
+                        "registrationEnabled",
+                    ),
+                }),
+            });
+            return;
+        }
+
+        if (
+            request.method === "POST" &&
+            pathname === `${API_BASE_PATH}/admin/users`
+        ) {
+            requireAdmin(user);
+            await handleAdminCreateUser(request, response);
+            return;
+        }
+
+        const adminUserMatch = matchRoute(
+            pathname,
+            /^\/api\/postgres\/admin\/users\/(?<userId>[^/]+)$/,
+        );
+        if (adminUserMatch && request.method === "PATCH") {
+            requireAdmin(user);
+            await handleAdminUpdateUser(
+                request,
+                response,
+                adminUserMatch.userId,
+            );
+            return;
+        }
+        if (adminUserMatch && request.method === "DELETE") {
+            requireAdmin(user);
+            const deleted = await deleteUser({
+                userId: adminUserMatch.userId,
+                actorUserId: user.id,
+            });
+            if (!deleted) {
+                throw withStatus("Target user not found.", 404);
+            }
+            noContent(response);
             return;
         }
 

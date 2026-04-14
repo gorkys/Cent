@@ -111,12 +111,12 @@ Important defaults:
 
 ```env
 VITE_POSTGRES_API_HOST="/api/postgres"
-VITE_POSTGRES_PROXY_TARGET="http://127.0.0.1:8787"
+VITE_POSTGRES_PROXY_TARGET="http://127.0.0.1:3459"
 ```
 
 This means:
 
-- During local `vite dev`, `/api/postgres` is proxied to `127.0.0.1:8787`
+- During local `vite dev`, `/api/postgres` is proxied to `127.0.0.1:3459`
 - In Docker deployment, the frontend still uses `/api/postgres`, and Nginx forwards it to the API container
 
 ### Backend environment variables
@@ -148,9 +148,10 @@ pnpm dev
 After startup:
 
 - Frontend: `http://localhost:5173`
-- Backend: `http://127.0.0.1:8787/api/postgres`
+- Backend: `http://127.0.0.1:3459/api/postgres`
 
 Open the login page and use `Register account` or `Username/password login` to enter the PostgreSQL flow.
+In Docker deployment, users no longer need to manually enter the PostgreSQL API address.
 
 ## Docker Deployment
 
@@ -173,20 +174,22 @@ cp .env.docker.example .env
 At minimum, update these values:
 
 ```env
-WEB_PORT=8080
+WEB_PORT=3458
+POSTGRES_API_PORT=3459
 
 POSTGRES_PASSWORD=replace-with-a-strong-postgres-password
 POSTGRES_DATABASE=cent
 POSTGRES_USER=cent
 
 POSTGRES_API_AUTH_SECRET=replace-with-a-long-random-secret
-POSTGRES_API_CORS_ORIGIN=http://localhost:8080
+POSTGRES_API_CORS_ORIGIN=http://localhost:3458
 ```
 
 Notes:
 
 - `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DATABASE` are the shared database credentials for both `postgres` and `api`
 - `docker-compose.yml` maps the same database name to `POSTGRES_DB` for the PostgreSQL container and `POSTGRES_DATABASE` for the API container
+- `WEB_PORT` defaults to `3458`, and `POSTGRES_API_PORT` defaults to `3459`
 - `POSTGRES_API_AUTH_SECRET` must be replaced with a strong random string
 - `POSTGRES_API_CORS_ORIGIN` must match the actual frontend address
 - If you later use a domain name, update it here as well
@@ -200,7 +203,13 @@ docker compose up -d --build
 Then open:
 
 ```text
-http://localhost:8080
+http://localhost:3458
+```
+
+If you need to hit the backend health endpoint directly:
+
+```text
+http://localhost:3459/api/postgres/health
 ```
 
 ### Step 3: initialize the app
@@ -208,8 +217,9 @@ http://localhost:8080
 1. Open the homepage
 2. Click `Register account`
 3. Create the first user
-4. Create a book
-5. Start recording bills
+4. The first registered user automatically becomes the `admin`
+5. Create a book
+6. Start recording bills
 
 ### Common commands
 

@@ -14,6 +14,8 @@ type UserStoreState = {
     avatar_url: string;
     name: string;
     id: number | string;
+    username?: string;
+    is_admin?: boolean;
     loading: boolean;
     expired?: boolean;
     cachedUsers: Record<string, UserInfo>;
@@ -53,6 +55,8 @@ export const useUserStore = create<UserStore>()(
                             state.avatar_url = res.avatar_url;
                             state.name = res.name;
                             state.id = res.id;
+                            state.username = res.username;
+                            state.is_admin = res.is_admin;
                             state.expired = undefined;
                         }),
                     );
@@ -140,6 +144,8 @@ export const useUserStore = create<UserStore>()(
                 login: "",
                 name: "",
                 id: 0,
+                username: "",
+                is_admin: false,
                 updateUserInfo,
                 getUserInfo,
                 getCollaborators,

@@ -111,12 +111,12 @@ cp .env.example .env.local
 
 ```env
 VITE_POSTGRES_API_HOST="/api/postgres"
-VITE_POSTGRES_PROXY_TARGET="http://127.0.0.1:8787"
+VITE_POSTGRES_PROXY_TARGET="http://127.0.0.1:3459"
 ```
 
 这意味着：
 
-- 本地 `vite dev` 访问前端时，`/api/postgres` 会自动代理到 `127.0.0.1:8787`
+- 本地 `vite dev` 访问前端时，`/api/postgres` 会自动代理到 `127.0.0.1:3459`
 - Docker 部署时，前端也继续使用 `/api/postgres`，由 Nginx 反代到 API 容器
 
 ### 后端环境变量
@@ -148,9 +148,10 @@ pnpm dev
 启动后：
 
 - 前端默认在 `http://localhost:5173`
-- 后端默认在 `http://127.0.0.1:8787/api/postgres`
+- 后端默认在 `http://127.0.0.1:3459/api/postgres`
 
 进入登录页后，选择 `注册账号` 或 `账号密码登录`，即可走 PostgreSQL 链路。
+Docker 部署下不需要再手动输入 PostgreSQL API 地址。
 
 ## Docker 部署
 
@@ -173,20 +174,22 @@ cp .env.docker.example .env
 至少修改以下几项：
 
 ```env
-WEB_PORT=8080
+WEB_PORT=3458
+POSTGRES_API_PORT=3459
 
 POSTGRES_PASSWORD=replace-with-a-strong-postgres-password
 POSTGRES_DATABASE=cent
 POSTGRES_USER=cent
 
 POSTGRES_API_AUTH_SECRET=replace-with-a-long-random-secret
-POSTGRES_API_CORS_ORIGIN=http://localhost:8080
+POSTGRES_API_CORS_ORIGIN=http://localhost:3458
 ```
 
 说明：
 
 - `POSTGRES_USER`、`POSTGRES_PASSWORD`、`POSTGRES_DATABASE` 是 `postgres` 和 `api` 共用的一组数据库凭据
 - `docker-compose.yml` 会把同一组数据库名分别映射给 PostgreSQL 容器的 `POSTGRES_DB` 和 API 容器的 `POSTGRES_DATABASE`
+- `WEB_PORT` 默认为 `3458`，`POSTGRES_API_PORT` 默认为 `3459`
 - `POSTGRES_API_AUTH_SECRET` 必须替换成强随机字符串
 - `POSTGRES_API_CORS_ORIGIN` 要与你实际访问前端的地址一致
 - 如果以后挂域名，也在这里同步改掉
@@ -200,7 +203,13 @@ docker compose up -d --build
 启动完成后访问：
 
 ```text
-http://localhost:8080
+http://localhost:3458
+```
+
+如果需要直接访问后端健康检查：
+
+```text
+http://localhost:3459/api/postgres/health
 ```
 
 ### 第三步：初始化使用
@@ -208,8 +217,9 @@ http://localhost:8080
 1. 打开首页
 2. 选择 `注册账号`
 3. 注册第一个用户
-4. 创建账本
-5. 开始记账
+4. 第一个注册用户默认拥有 `admin` 权限
+5. 创建账本
+6. 开始记账
 
 ### 常用命令
 

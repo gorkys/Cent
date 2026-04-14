@@ -13,8 +13,15 @@ const parseJson = (value, fallback) => {
 
 const toUserInfo = (row) => ({
     id: `${row.id}`,
+    username: row.username,
     name: row.display_name || row.username,
     avatar_url: row.avatar_url || "/icon.png",
+    is_admin: Boolean(row.is_admin),
+});
+
+const toAdminUser = (row) => ({
+    ...toUserInfo(row),
+    created_at: row.created_at,
 });
 
 const toBook = (row) => ({
@@ -42,7 +49,7 @@ const toEntry = (row) => ({
 export const findUserByUsername = async (username) => {
     const { rows } = await query(
         `
-        SELECT id, username, password_hash, display_name, avatar_url
+        SELECT id, username, password_hash, display_name, avatar_url, is_admin
         FROM users
         WHERE username = ?
         LIMIT 1
@@ -55,7 +62,7 @@ export const findUserByUsername = async (username) => {
 export const findUserById = async (id) => {
     const { rows } = await query(
         `
-        SELECT id, username, display_name, avatar_url
+        SELECT id, username, display_name, avatar_url, is_admin
         FROM users
         WHERE id = ?
         LIMIT 1
@@ -65,16 +72,158 @@ export const findUserById = async (id) => {
     return rows[0];
 };
 
-export const createUser = async ({ username, passwordHash, displayName }) => {
+export const countUsers = async () => {
     const { rows } = await query(
         `
-        INSERT INTO users (username, password_hash, display_name, avatar_url)
-        VALUES (?, ?, ?, ?)
+        SELECT COUNT(*)::int AS count
+        FROM users
+        `,
+    );
+    return Number(rows[0]?.count ?? 0);
+};
+
+const countAdmins = async () => {
+    const { rows } = await query(
+        `
+        SELECT COUNT(*)::int AS count
+        FROM users
+        WHERE is_admin = TRUE
+        `,
+    );
+    return Number(rows[0]?.count ?? 0);
+};
+
+export const createUser = async ({
+    username,
+    passwordHash,
+    displayName,
+    isAdmin = false,
+}) => {
+    const { rows } = await query(
+        `
+        INSERT INTO users (
+            username,
+            password_hash,
+            display_name,
+            is_admin,
+            avatar_url
+        )
+        VALUES (?, ?, ?, ?, ?)
         RETURNING id
         `,
-        [username, passwordHash, displayName, "/icon.png"],
+        [username, passwordHash, displayName, isAdmin, "/icon.png"],
     );
     return await findUserById(rows[0]?.id);
+};
+
+export const listUsers = async () => {
+    const { rows } = await query(
+        `
+        SELECT id, username, display_name, avatar_url, is_admin, created_at
+        FROM users
+        ORDER BY created_at ASC, id ASC
+        `,
+    );
+    return rows.map(toAdminUser);
+};
+
+export const getAuthSettings = async () => {
+    const { rows } = await query(
+        `
+        SELECT value_json
+        FROM app_settings
+        WHERE key = 'auth'
+        LIMIT 1
+        `,
+    );
+    const value = parseJson(rows[0]?.value_json, {});
+    return {
+        registrationEnabled: value.registrationEnabled !== false,
+    };
+};
+
+export const updateAuthSettings = async ({ registrationEnabled }) => {
+    const nextValue = { registrationEnabled: Boolean(registrationEnabled) };
+    await query(
+        `
+        INSERT INTO app_settings (key, value_json, updated_at)
+        VALUES ('auth', ?, CURRENT_TIMESTAMP)
+        ON CONFLICT (key) DO UPDATE SET
+            value_json = EXCLUDED.value_json,
+            updated_at = CURRENT_TIMESTAMP
+        `,
+        [JSON.stringify(nextValue)],
+    );
+    return nextValue;
+};
+
+export const updateUser = async ({
+    userId,
+    username,
+    displayName,
+    passwordHash,
+    isAdmin,
+}) => {
+    const existing = await findUserById(userId);
+    if (!existing) {
+        const error = new Error("Target user not found.");
+        error.statusCode = 404;
+        throw error;
+    }
+
+    const nextIsAdmin =
+        typeof isAdmin === "boolean" ? isAdmin : Boolean(existing.is_admin);
+    if (existing.is_admin && !nextIsAdmin && (await countAdmins()) <= 1) {
+        const error = new Error("At least one admin user must remain.");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    await query(
+        `
+        UPDATE users
+        SET
+            username = ?,
+            display_name = ?,
+            password_hash = COALESCE(?, password_hash),
+            is_admin = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        `,
+        [
+            username ?? existing.username,
+            displayName ?? existing.display_name,
+            passwordHash ?? null,
+            nextIsAdmin,
+            userId,
+        ],
+    );
+    return await findUserById(userId);
+};
+
+export const deleteUser = async ({ userId, actorUserId }) => {
+    const existing = await findUserById(userId);
+    if (!existing) {
+        return false;
+    }
+    if (`${userId}` === `${actorUserId}`) {
+        const error = new Error("You cannot delete the current admin user.");
+        error.statusCode = 400;
+        throw error;
+    }
+    if (existing.is_admin && (await countAdmins()) <= 1) {
+        const error = new Error("At least one admin user must remain.");
+        error.statusCode = 400;
+        throw error;
+    }
+    await query(
+        `
+        DELETE FROM users
+        WHERE id = ?
+        `,
+        [userId],
+    );
+    return true;
 };
 
 export const listBooksForUser = async (userId) => {

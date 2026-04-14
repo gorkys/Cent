@@ -1,9 +1,11 @@
 /** biome-ignore-all lint/a11y/noSvgWithoutTitle: <explanation> */
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useShallow } from "zustand/shallow";
 import modal from "@/components/modal";
 import { useIntl } from "@/locale";
 import { useIsLogin, useUserStore } from "@/store/user";
+import { createPublicPostgresClient } from "@/api/endpoints/postgres/auth";
 
 const loaded = import("@/api/storage");
 
@@ -21,11 +23,30 @@ const betaClassName = `relative after:content-['beta'] after:rounded after:bg-ye
 export default function Login() {
     const t = useIntl();
     const isLogin = useIsLogin();
+    const [registrationEnabled, setRegistrationEnabled] = useState(false);
     const [loading] = useUserStore(
         useShallow((state) => {
             return [state.loading];
         }),
     );
+    useEffect(() => {
+        let disposed = false;
+        createPublicPostgresClient()
+            .getAuthSettings()
+            .then((settings) => {
+                if (!disposed) {
+                    setRegistrationEnabled(settings.registrationEnabled);
+                }
+            })
+            .catch(() => {
+                if (!disposed) {
+                    setRegistrationEnabled(false);
+                }
+            });
+        return () => {
+            disposed = true;
+        };
+    }, []);
     if (isLogin) {
         return null;
     }
@@ -33,9 +54,9 @@ export default function Login() {
         <div className="fixed z-[1] top-0 right-0 w-screen h-screen overflow-hidden">
             <div className="absolute w-full h-full bg-[rgba(0,0,0,0.5)] z-[-1]"></div>
             <div className="w-full h-full flex justify-center items-center">
-                <div className="bg-background w-[350px] h-[480px] flex flex-col gap-4 justify-center items-center rounded-lg overflow-hidden">
+                <div className="bg-background w-[min(350px,calc(100vw-2rem))] max-h-[calc(100vh-2rem)] sm:max-h-[640px] flex flex-col gap-4 justify-center items-center rounded-lg overflow-y-auto overflow-x-hidden">
                     <Guide />
-                    <div className="min-h-20 h-fit pb-4 flex flex-col gap-4">
+                    <div className="min-h-20 h-fit w-full px-4 pb-4 flex flex-col gap-4">
                         {loading ? (
                             <div>
                                 <i className="icon-[mdi--loading] animate-spin"></i>
@@ -128,21 +149,27 @@ export default function Login() {
                                             {t("login-with-postgres")}
                                         </div>
                                     </button>
-                                    <button
-                                        type="button"
-                                        className="underline text-xs cursor-pointer"
-                                        onClick={async () => {
-                                            const { PostgresEndpoint } =
-                                                await import(
-                                                    "@/api/endpoints/postgres"
-                                                );
-                                            await PostgresEndpoint.register({
-                                                modal,
-                                            });
-                                        }}
-                                    >
-                                        {t("register-account")}
-                                    </button>
+                                    {registrationEnabled && (
+                                        <div className="flex justify-center pt-1">
+                                            <button
+                                                type="button"
+                                                className="underline text-xs cursor-pointer text-center"
+                                                onClick={async () => {
+                                                    const { PostgresEndpoint } =
+                                                        await import(
+                                                            "@/api/endpoints/postgres"
+                                                        );
+                                                    await PostgresEndpoint.register(
+                                                        {
+                                                            modal,
+                                                        },
+                                                    );
+                                                }}
+                                            >
+                                                {t("register-account")}
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                                 <div>
                                     <button

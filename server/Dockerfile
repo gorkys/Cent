@@ -12,6 +12,6 @@ RUN pnpm install --prod --frozen-lockfile --ignore-scripts
 
 COPY server ./server
 
-EXPOSE 8787
+EXPOSE 3459
 
 CMD ["node", "./server/index.mjs"]

@@ -10,10 +10,15 @@ const schemaStatements = [
         username VARCHAR(64) NOT NULL UNIQUE,
         password_hash VARCHAR(255) NOT NULL,
         display_name VARCHAR(128) NOT NULL,
+        is_admin BOOLEAN NOT NULL DEFAULT FALSE,
         avatar_url TEXT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+    `,
+    `
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;
     `,
     `
     CREATE TABLE IF NOT EXISTS books (
@@ -63,6 +68,33 @@ const schemaStatements = [
         mime_type VARCHAR(128) NOT NULL,
         blob_data BYTEA NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    `,
+    `
+    CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value_json JSONB NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    `,
+    `
+    INSERT INTO app_settings (key, value_json)
+    VALUES ('auth', '{"registrationEnabled": true}')
+    ON CONFLICT (key) DO NOTHING;
+    `,
+    `
+    UPDATE users
+    SET is_admin = TRUE
+    WHERE id IN (
+        SELECT id
+        FROM users
+        ORDER BY created_at ASC, id ASC
+        LIMIT 1
+    )
+    AND NOT EXISTS (
+        SELECT 1
+        FROM users
+        WHERE is_admin = TRUE
     );
     `,
     `

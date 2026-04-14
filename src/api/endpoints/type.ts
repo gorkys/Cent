@@ -8,6 +8,8 @@ export type UserInfo = {
     name: string;
     // login: string;
     id: string;
+    username?: string;
+    is_admin?: boolean;
 };
 
 export type Book = { id: string; name: string };

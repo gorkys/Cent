@@ -7,17 +7,41 @@ const SYNC_ENDPOINT_KEY = "SYNC_ENDPOINT";
 const POSTGRES_ENDPOINT_TYPE = "postgres";
 
 const trimSlash = (value: string) => value.replace(/\/+$/, "");
+const getDefaultPort = (protocol: string) =>
+    protocol === "https:" ? "443" : "80";
+const normalizeApiBaseUrl = (value: string) => {
+    const trimmed = trimSlash(value);
+    if (!trimmed) {
+        return trimmed;
+    }
+    try {
+        const url = new URL(trimmed, window.location.origin);
+        if (
+            url.hostname === window.location.hostname &&
+            url.protocol === window.location.protocol &&
+            !url.port &&
+            window.location.port &&
+            window.location.port !==
+                getDefaultPort(window.location.protocol)
+        ) {
+            url.port = window.location.port;
+        }
+        return trimSlash(url.toString());
+    } catch {
+        return trimmed;
+    }
+};
 
-const getDefaultApiBaseUrl = () => {
+export const getDefaultApiBaseUrl = () => {
     const stored = localStorage.getItem(POSTGRES_API_BASE_URL_KEY);
     if (stored) {
-        return trimSlash(stored);
+        return normalizeApiBaseUrl(stored);
     }
     const envValue = import.meta.env.VITE_POSTGRES_API_HOST;
     if (envValue) {
-        return trimSlash(envValue);
+        return normalizeApiBaseUrl(envValue);
     }
-    return `${window.location.origin}/api/postgres`;
+    return normalizeApiBaseUrl(`${window.location.origin}/api/postgres`);
 };
 
 export type PostgresSession = {
@@ -32,7 +56,7 @@ export const getPostgresSession = (): PostgresSession | undefined => {
         return undefined;
     }
     return {
-        apiBaseUrl: trimSlash(apiBaseUrl),
+        apiBaseUrl: normalizeApiBaseUrl(apiBaseUrl),
         accessToken,
     };
 };
@@ -46,7 +70,7 @@ export const savePostgresSession = (session: PostgresSession) => {
     localStorage.setItem(SYNC_ENDPOINT_KEY, POSTGRES_ENDPOINT_TYPE);
     localStorage.setItem(
         POSTGRES_API_BASE_URL_KEY,
-        trimSlash(session.apiBaseUrl),
+        normalizeApiBaseUrl(session.apiBaseUrl),
     );
     localStorage.setItem(POSTGRES_ACCESS_TOKEN_KEY, session.accessToken);
 };
@@ -56,6 +80,13 @@ export const createSessionPostgresClient = () => {
         apiBaseUrl:
             getPostgresSession()?.apiBaseUrl ?? getDefaultApiBaseUrl(),
         getAccessToken: () => getPostgresSession()?.accessToken,
+    });
+};
+
+export const createPublicPostgresClient = () => {
+    return createPostgresClient({
+        apiBaseUrl: getDefaultApiBaseUrl(),
+        getAccessToken: () => undefined,
     });
 };
 
@@ -72,14 +103,7 @@ const askInput = async (
 };
 
 const authenticate = async (modal: Modal, mode: "login" | "register") => {
-    const apiBaseUrl = await askInput(modal, "请输入 PostgreSQL API 地址", {
-        type: "text",
-        defaultValue: getDefaultApiBaseUrl(),
-        placeholder: "http://localhost:8787/api/postgres",
-    });
-    if (!apiBaseUrl) {
-        return;
-    }
+    const apiBaseUrl = getDefaultApiBaseUrl();
     const username = await askInput(modal, "请输入用户名", {
         type: "text",
         placeholder: "username",

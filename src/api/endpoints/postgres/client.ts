@@ -6,8 +6,23 @@ export type PostgresAuthResponse = {
         id: string;
         name: string;
         avatar_url: string;
+        username?: string;
+        is_admin?: boolean;
     };
     apiBaseUrl?: string;
+};
+
+export type PostgresAuthSettings = {
+    registrationEnabled: boolean;
+};
+
+export type PostgresAdminUser = {
+    id: string;
+    name: string;
+    avatar_url: string;
+    username: string;
+    is_admin: boolean;
+    created_at?: string;
 };
 
 type ClientConfig = {
@@ -16,7 +31,7 @@ type ClientConfig = {
 };
 
 type RequestOptions = {
-    method?: "GET" | "POST" | "DELETE";
+    method?: "GET" | "POST" | "PATCH" | "DELETE";
     body?: unknown;
     signal?: AbortSignal;
     auth?: boolean;
@@ -98,6 +113,11 @@ export const createPostgresClient = ({
                 auth: false,
             });
         },
+        async getAuthSettings() {
+            return await request<PostgresAuthSettings>("/auth/settings", {
+                auth: false,
+            });
+        },
         async getMe() {
             const result = await request<{ user: PostgresAuthResponse["user"] }>(
                 "/me",
@@ -158,6 +178,61 @@ export const createPostgresClient = ({
                 body: { username },
             });
             return result.collaborator;
+        },
+        async getAdminBootstrap() {
+            return await request<{
+                users: PostgresAdminUser[];
+                auth: PostgresAuthSettings;
+            }>("/admin/bootstrap");
+        },
+        async updateAuthSettings(payload: PostgresAuthSettings) {
+            const result = await request<{ auth: PostgresAuthSettings }>(
+                "/admin/settings/auth",
+                {
+                    method: "PATCH",
+                    body: payload,
+                },
+            );
+            return result.auth;
+        },
+        async createUser(payload: {
+            username: string;
+            password: string;
+            displayName: string;
+            isAdmin?: boolean;
+        }) {
+            const result = await request<{ user: PostgresAdminUser }>(
+                "/admin/users",
+                {
+                    method: "POST",
+                    body: payload,
+                },
+            );
+            return result.user;
+        },
+        async updateUser(
+            userId: string,
+            payload: {
+                username?: string;
+                password?: string;
+                displayName?: string;
+                isAdmin?: boolean;
+            },
+        ) {
+            const result = await request<{ user: PostgresAdminUser }>(
+                `/admin/users/${userId}`,
+                {
+                    method: "PATCH",
+                    body: payload,
+                },
+            );
+            return result.user;
+        },
+        async deleteUser(userId: string) {
+            await request(`/admin/users/${userId}`, {
+                method: "DELETE",
+                responseType: "void",
+            });
         },
         async uploadAsset(bookId: string, file: File, signal?: AbortSignal) {
             const result = await request<{

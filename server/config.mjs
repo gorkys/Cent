@@ -19,7 +19,7 @@ const publicBaseUrl = process.env.POSTGRES_API_PUBLIC_BASE_URL;
 
 export const config = {
     host: process.env.POSTGRES_API_HOST ?? "0.0.0.0",
-    port: parseNumber(process.env.POSTGRES_API_PORT ?? process.env.PORT, 8787),
+    port: parseNumber(process.env.POSTGRES_API_PORT ?? process.env.PORT, 3459),
     authSecret:
         process.env.POSTGRES_API_AUTH_SECRET ??
         "change-me-before-production-deploy",
