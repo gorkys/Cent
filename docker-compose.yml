@@ -23,27 +23,16 @@ services:
       start_period: 30s
 
   api:
-    build:
-      context: .
-      dockerfile: server/Dockerfile
+    image: ${CENT_API_IMAGE:-gorkys/cent-api:latest}
     restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      POSTGRES_API_HOST: 0.0.0.0
-      POSTGRES_API_PORT: 3459
       POSTGRES_API_AUTH_SECRET: ${POSTGRES_API_AUTH_SECRET:-change-me-before-production-deploy}
-      POSTGRES_API_CORS_ORIGIN: ${POSTGRES_API_CORS_ORIGIN:-http://localhost:3458}
-      POSTGRES_API_PUBLIC_BASE_URL: ${POSTGRES_API_PUBLIC_BASE_URL:-}
-      POSTGRES_API_BODY_LIMIT_MB: ${POSTGRES_API_BODY_LIMIT_MB:-15}
       POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
       <<: *postgres-shared-env
       POSTGRES_DATABASE: ${POSTGRES_DATABASE:-cent}
-      POSTGRES_CONNECTION_LIMIT: ${POSTGRES_CONNECTION_LIMIT:-10}
-    ports:
-      - "${POSTGRES_API_PORT:-3459}:3459"
     healthcheck:
       test:
         [
@@ -58,15 +47,7 @@ services:
       start_period: 20s
 
   web:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        VITE_GTAG_SCRIPT: ${VITE_GTAG_SCRIPT:-}
-        VITE_LOGIN_API_HOST: ${VITE_LOGIN_API_HOST:-http://localhost}
-        VITE_POSTGRES_API_HOST: ${VITE_POSTGRES_API_HOST:-/api/postgres}
-        VITE_POSTGRES_PROXY_TARGET: ${VITE_POSTGRES_PROXY_TARGET:-http://127.0.0.1:3459}
-        VITE_RATE_API_HOST: ${VITE_RATE_API_HOST:-http://localhost}
+    image: ${CENT_WEB_IMAGE:-gorkys/cent:latest}
     restart: unless-stopped
     depends_on:
       api:

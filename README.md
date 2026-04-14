@@ -1,95 +1,152 @@
 # Cent
 
-基于原版 [glink25/Cent](https://github.com/glink25/Cent) 改造的 PostgreSQL 自托管版本。
+Cent 是基于上游 [glink25/Cent](https://github.com/glink25/Cent) 改造的 PostgreSQL 自托管版本。它保留了原项目成熟的账本体验、IndexedDB 本地缓存和同步机制，同时补齐了账号体系、服务端持久化和更适合生产使用的 Docker 部署方案。
 
-这个版本保留了原项目的前端账本模型、IndexedDB 本地缓存、同步调度和统计分析能力，把默认自托管链路改成了：
+## 核心能力
 
-- `账号密码注册 / 登录`
-- `Node.js API + PostgreSQL 持久化`
-- `Docker 一键编排部署`
+- 多账本、多成员、分类、标签、预算、统计分析
+- IndexedDB 本地缓存与同步机制
+- PostgreSQL 持久化与自动建表
+- 用户注册、登录、令牌鉴权
+- 首个注册用户自动成为 `admin`
+- 管理员可管理用户，并动态开关开放注册
+- Docker 自托管，默认拓扑为 `postgres + api + web`
 
-默认部署形态为 `nginx + frontend + api + postgres`。
+## 与上游的主要差异
 
-## 项目定位
+相较于上游 [glink25/Cent](https://github.com/glink25/Cent)，当前版本新增了：
 
-Cent 仍然是一个以账本、账单、分类、标签、预算、统计为核心的前端记账应用。
+- `server/` Node.js API
+- PostgreSQL 存储实现
+- 前端 PostgreSQL 端点接入
+- 账号密码注册与登录
+- 默认生产可用的 Docker Compose 编排
 
-这次改造没有重写账单业务层，而是在原有存储抽象之上新增了 PostgreSQL 端点，因此这些能力仍然保留：
+## 部署结构
 
-- 多账本
-- 本地 IndexedDB 缓存
-- 批量同步
-- 协作者机制
-- 图片附件
-- 统计分析、预算、标签、分类
+默认生产部署包含 3 个服务：
 
-## 本次升级了什么
+- `postgres`：负责数据持久化
+- `api`：负责鉴权、账本、账单、附件和用户接口
+- `web`：负责提供前端静态资源，并将 `/api/postgres` 转发到内部 `api`
 
-### 1. 新增 PostgreSQL 后端
+默认情况下只对外暴露 `web` 服务端口。外层反向代理只需要指向 `127.0.0.1:3458`，仓库内的 nginx 会继续负责前端静态资源和 API 转发。
 
-后端目录在 [`server/`](./server)，主要职责：
+## 快速开始
 
-- 用户注册与账号密码登录
-- 账本与成员关系管理
-- 账单与元数据持久化
-- 附件存储
-- PostgreSQL 自动建表
+仓库根目录的 [`docker-compose.yml`](./docker-compose.yml) 已经是简化后的生产编排。常规部署下，通常只需要修改这 3 个值：
 
-核心文件：
-
-- [`server/index.mjs`](./server/index.mjs)
-- [`server/db.mjs`](./server/db.mjs)
-- [`server/repository.mjs`](./server/repository.mjs)
-- [`server/auth.mjs`](./server/auth.mjs)
-
-### 2. 前端新增 PostgreSQL 存储端点
-
-前端通过已有的存储抽象接入 PostgreSQL 模式，关键文件：
-
-- [`src/api/endpoints/postgres/index.ts`](./src/api/endpoints/postgres/index.ts)
-- [`src/api/endpoints/postgres/client.ts`](./src/api/endpoints/postgres/client.ts)
-- [`src/api/endpoints/postgres/storage.ts`](./src/api/endpoints/postgres/storage.ts)
-- [`src/api/endpoints/postgres/auth.ts`](./src/api/endpoints/postgres/auth.ts)
-
-默认仍然保留本地缓存和同步状态管理，PostgreSQL 负责远端持久化。
-
-### 3. 登录页支持账号密码链路
-
-登录页已经加入：
-
-- `账号密码登录`
-- `注册账号`
-
-用户首次进入后可以直接注册、创建账本并开始记账。
-
-### 4. 默认支持 Docker 部署
-
-已新增以下 Docker 物料：
-
-- [`Dockerfile`](./Dockerfile)
-- [`server/Dockerfile`](./server/Dockerfile)
-- [`docker-compose.yml`](./docker-compose.yml)
-- [`docker/nginx/default.conf`](./docker/nginx/default.conf)
-- [`.dockerignore`](./.dockerignore)
-- [`.env.docker.example`](./.env.docker.example)
-
-## 目录说明
-
-```text
-.
-├─ src/                      # 前端 React + Vite 代码
-├─ server/                   # Node.js + PostgreSQL API
-├─ docker/nginx/             # Nginx 反向代理配置
-├─ docs/                     # 额外说明文档
-├─ Dockerfile                # 前端生产镜像
-├─ server/Dockerfile         # 后端生产镜像
-└─ docker-compose.yml        # 默认部署编排
+```env
+WEB_PORT=3458
+POSTGRES_PASSWORD=<postgres-password>
+POSTGRES_API_AUTH_SECRET=<auth-secret>
 ```
 
-补充文档：
+### 使用仓库默认编排
 
-- [`docs/postgresql-self-host.md`](./docs/postgresql-self-host.md)
-- [`docs/postgresql-migration-todo.md`](./docs/postgresql-migration-todo.md)
+复制 [`.env.docker.example`](./.env.docker.example) 为 `.env`：
+
+```bash
+cp .env.docker.example .env
+```
+
+修改其中带尖括号的值后，直接启动：
+
+```bash
+docker compose up -d
+```
+
+启动后访问：
+
+- 前端：`http://localhost:3458`
+- 同源健康检查：`http://localhost:3458/api/postgres/health`
+
+### 可直接复制的最简编排
+
+下面这份示例与仓库默认拓扑等价，适合需要直接复制粘贴使用的场景。需要你手动修改的地方都用 `<...>` 标出：
+
+```yaml
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cent
+      POSTGRES_PASSWORD: <postgres-password>
+      POSTGRES_DB: cent
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -h 127.0.0.1 -p 5432 -U $$POSTGRES_USER -d $$POSTGRES_DB",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  api:
+    image: gorkys/cent-api:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_API_AUTH_SECRET: <auth-secret>
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: cent
+      POSTGRES_PASSWORD: <postgres-password>
+      POSTGRES_DATABASE: cent
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3459/api/postgres/health').then((response)=>{if(!response.ok)process.exit(1);}).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  web:
+    image: gorkys/cent:latest
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "<web-port>:80"
+
+volumes:
+  postgres-data:
+```
+
+如果你不需要改端口，`<web-port>` 直接写成 `3458` 即可。
+
+## 初始化流程
+
+服务启动后：
+
+1. 打开首页
+2. 点击 `注册账号`
+3. 创建第一个用户
+4. 第一个注册用户会自动成为 `admin`
+5. 创建账本并开始使用
+
+## 管理员与注册机制
+
+当前版本已经补齐基础管理能力：
+
+- 首个注册用户自动成为管理员
+- 管理员可在界面中查看、创建、编辑、删除用户
+- 管理员可动态开关“是否允许开放注册”
+- 登录页会根据系统设置自动显示或隐藏“注册账号”
+
+Docker 部署下，用户不需要手动输入 PostgreSQL API 地址。
 
 ## 本地开发
 
@@ -107,17 +164,12 @@ Cent 仍然是一个以账本、账单、分类、标签、预算、统计为核
 cp .env.example .env.local
 ```
 
-默认关键项：
+关键默认值：
 
 ```env
 VITE_POSTGRES_API_HOST="/api/postgres"
 VITE_POSTGRES_PROXY_TARGET="http://127.0.0.1:3459"
 ```
-
-这意味着：
-
-- 本地 `vite dev` 访问前端时，`/api/postgres` 会自动代理到 `127.0.0.1:3459`
-- Docker 部署时，前端也继续使用 `/api/postgres`，由 Nginx 反代到 API 容器
 
 ### 后端环境变量
 
@@ -127,17 +179,17 @@ VITE_POSTGRES_PROXY_TARGET="http://127.0.0.1:3459"
 cp server/.env.example server/.env
 ```
 
-然后根据你的本地 PostgreSQL 修改：
+最小配置示例：
 
 ```env
 POSTGRES_HOST=127.0.0.1
 POSTGRES_PORT=5432
 POSTGRES_USER=postgres
-POSTGRES_PASSWORD=replace-me
+POSTGRES_PASSWORD=<postgres-password>
 POSTGRES_DATABASE=cent
 ```
 
-### 启动方式
+### 启动开发环境
 
 ```bash
 pnpm install
@@ -145,83 +197,12 @@ npm run server
 pnpm dev
 ```
 
-启动后：
+默认访问地址：
 
-- 前端默认在 `http://localhost:5173`
-- 后端默认在 `http://127.0.0.1:3459/api/postgres`
+- 前端：`http://localhost:5173`
+- 后端：`http://127.0.0.1:3459/api/postgres`
 
-进入登录页后，选择 `注册账号` 或 `账号密码登录`，即可走 PostgreSQL 链路。
-Docker 部署下不需要再手动输入 PostgreSQL API 地址。
-
-## Docker 部署
-
-### 默认架构
-
-`docker-compose.yml` 会启动三个服务：
-
-- `postgres`: PostgreSQL 容器，账本数据持久化到 `postgres-data` volume
-- `api`: Node.js API 容器，处理注册、登录、账本、账单、附件
-- `web`: Nginx 容器，提供静态前端并反代 `/api/postgres`
-
-### 第一步：准备环境变量
-
-复制 Docker 环境模板：
-
-```bash
-cp .env.docker.example .env
-```
-
-至少修改以下几项：
-
-```env
-WEB_PORT=3458
-POSTGRES_API_PORT=3459
-
-POSTGRES_PASSWORD=replace-with-a-strong-postgres-password
-POSTGRES_DATABASE=cent
-POSTGRES_USER=cent
-
-POSTGRES_API_AUTH_SECRET=replace-with-a-long-random-secret
-POSTGRES_API_CORS_ORIGIN=http://localhost:3458
-```
-
-说明：
-
-- `POSTGRES_USER`、`POSTGRES_PASSWORD`、`POSTGRES_DATABASE` 是 `postgres` 和 `api` 共用的一组数据库凭据
-- `docker-compose.yml` 会把同一组数据库名分别映射给 PostgreSQL 容器的 `POSTGRES_DB` 和 API 容器的 `POSTGRES_DATABASE`
-- `WEB_PORT` 默认为 `3458`，`POSTGRES_API_PORT` 默认为 `3459`
-- `POSTGRES_API_AUTH_SECRET` 必须替换成强随机字符串
-- `POSTGRES_API_CORS_ORIGIN` 要与你实际访问前端的地址一致
-- 如果以后挂域名，也在这里同步改掉
-
-### 第二步：构建并启动
-
-```bash
-docker compose up -d --build
-```
-
-启动完成后访问：
-
-```text
-http://localhost:3458
-```
-
-如果需要直接访问后端健康检查：
-
-```text
-http://localhost:3459/api/postgres/health
-```
-
-### 第三步：初始化使用
-
-1. 打开首页
-2. 选择 `注册账号`
-3. 注册第一个用户
-4. 第一个注册用户默认拥有 `admin` 权限
-5. 创建账本
-6. 开始记账
-
-### 常用命令
+## 常用运维命令
 
 查看服务状态：
 
@@ -243,55 +224,35 @@ docker compose logs -f postgres
 docker compose down
 ```
 
-删除容器并清空数据库卷：
+删除容器和数据库卷：
 
 ```bash
 docker compose down -v
 ```
 
-`docker compose down -v` 会删除 PostgreSQL 数据卷，属于不可恢复操作，执行前请先确认。
+`docker compose down -v` 会删除 PostgreSQL 数据卷，执行前请先确认已完成备份。
 
-## 生产环境建议
+## 项目结构
 
-默认 Docker 方案已经能直接启动，但如果要长期使用，建议至少做这些配置：
-
-- 使用域名并通过 Nginx/外层网关接入 HTTPS
-- 修改所有默认密码和 `POSTGRES_API_AUTH_SECRET`
-- 定期备份 PostgreSQL volume
-- 如果附件很多，后续考虑把附件存储迁到对象存储
-
-## 以后推到 GitHub 后怎么更新
-
-后续你把代码推到 GitHub 后，服务器侧更新方式可以保持很简单：
-
-```bash
-git pull
-docker compose up -d --build
+```text
+.
+├─ src/                      # React + Vite 前端
+├─ server/                   # Node.js + PostgreSQL API
+├─ docker/nginx/             # Web 容器内的 Nginx 配置
+├─ docs/                     # 补充说明文档
+├─ Dockerfile                # 前端镜像构建
+├─ server/Dockerfile         # 后端镜像构建
+└─ docker-compose.yml        # 默认生产编排
 ```
 
-如果只改了后端配置，不改前端构建变量，也可以只重启 API：
+补充文档：
 
-```bash
-docker compose up -d --build api
-```
+- [`docs/postgresql-self-host.md`](./docs/postgresql-self-host.md)
+- [`docs/postgresql-migration-todo.md`](./docs/postgresql-migration-todo.md)
 
-如果改了 `VITE_*` 变量，需要重建 `web` 镜像：
+## 与上游同步
 
-```bash
-docker compose up -d --build web
-```
-
-## 如何同步上游 glink25/Cent
-
-这个仓库最初不是通过 fork clone 下来的，而是后补的 Git 历史。因此已经额外做过一次“保留当前工作树内容”的上游历史连接，后续可以按标准 Git 方式同步上游。
-
-如果你换了一台机器重新 clone 自己的仓库，先补上 `upstream`：
-
-```bash
-git remote add upstream https://github.com/glink25/Cent.git
-```
-
-后续同步上游主分支的常规流程：
+如果需要继续同步上游 [glink25/Cent](https://github.com/glink25/Cent)，建议使用标准 Git 流程：
 
 ```bash
 git checkout main
@@ -299,44 +260,14 @@ git fetch upstream
 git merge upstream/main
 ```
 
-如果 merge 过程中出现冲突，优先检查这些位置：
-
-- `server/`
-- `src/api/endpoints/postgres/`
-- `src/components/login/index.tsx`
-- `src/components/settings/user.tsx`
-- `Dockerfile`
-- `server/Dockerfile`
-- `docker-compose.yml`
-- `docker/nginx/default.conf`
-- `README.md`
-- `README_EN.md`
-
-同步完成后，建议立即验证并推回自己的仓库：
+同步后建议至少执行：
 
 ```bash
 npm run lint
 npm run build
-git push origin main
 ```
 
-如果服务器已经部署了 Docker 版本，再执行：
+## 许可与上游
 
-```bash
-docker compose up -d --build
-```
-
-## 已验证内容
-
-当前版本会做以下验证：
-
-- `npm run lint`
-- `npm run build`
-
-## 许可证
-
-沿用原项目许可证：`CC BY-NC-SA 4.0`
-
-## 上游项目
-
+- License: `CC BY-NC-SA 4.0`
 - Upstream: [glink25/Cent](https://github.com/glink25/Cent)
