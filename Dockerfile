@@ -2,10 +2,13 @@ FROM node:22-alpine AS build
 
 WORKDIR /app
 
+ENV HUSKY=0
+
+RUN apk add --no-cache git
 RUN corepack enable
 
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 COPY . .
 
@@ -21,7 +24,7 @@ ENV VITE_POSTGRES_API_HOST=${VITE_POSTGRES_API_HOST}
 ENV VITE_POSTGRES_PROXY_TARGET=${VITE_POSTGRES_PROXY_TARGET}
 ENV VITE_RATE_API_HOST=${VITE_RATE_API_HOST}
 
-RUN pnpm run build
+RUN npx vite build
 
 FROM nginx:1.27-alpine AS runtime
 
