@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
-import react from "@vitejs/plugin-react-swc";
+import react from "@vitejs/plugin-react";
 import { buildSync } from "esbuild";
 import Info from "unplugin-info/vite";
 import { defineConfig, loadEnv, type PluginOption } from "vite";
@@ -70,6 +70,26 @@ export default defineConfig(({ mode }) => {
 
     return {
         plugins,
+        build: {
+            rollupOptions: {
+                output: {
+                    manualChunks: (id) => {
+                        if (id.includes("zod")) {
+                            return "zod";
+                        }
+                        if (id.includes("@dnd-kit")) {
+                            return "dndkit";
+                        }
+                        if (id.includes("echarts")) {
+                            return "echarts";
+                        }
+                        if (id.includes("react-day-picker")) {
+                            return "reactDayPicker";
+                        }
+                    },
+                },
+            },
+        },
         resolve: {
             alias: {
                 "@": resolve("./src"),

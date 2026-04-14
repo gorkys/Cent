@@ -19,6 +19,11 @@ type InstanceState<Value = any, Returned = any> = {
     openId: string;
 };
 
+const CANCEL_ERROR_MSG = "manually cancelled";
+
+export const isCancelError = (error: unknown) =>
+    error instanceof Error && error.message === CANCEL_ERROR_MSG;
+
 // 全局 Store 的总状态
 type GlobalConfirmState = {
     instances: Record<string, InstanceState>;
@@ -51,7 +56,7 @@ export const useGlobalConfirmStore = create<
                 return;
             }
             cancelled = true;
-            reject();
+            reject(new Error(CANCEL_ERROR_MSG));
             get().update(id, {
                 visible: false,
                 controller: undefined,
