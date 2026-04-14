@@ -1,20 +1,20 @@
 # Cent
 
-MySQL self-hosted edition based on the original [glink25/Cent](https://github.com/glink25/Cent).
+PostgreSQL self-hosted edition based on the original [glink25/Cent](https://github.com/glink25/Cent).
 
 This version keeps the original frontend ledger model, IndexedDB local cache, sync scheduling, and analytics, while changing the default self-hosted path to:
 
 - `Username/password registration and login`
-- `Node.js API + MySQL persistence`
+- `Node.js API + PostgreSQL persistence`
 - `Docker-based deployment`
 
-The default deployment topology is `nginx + frontend + api + mysql`.
+The default deployment topology is `nginx + frontend + api + postgres`.
 
 ## Project Scope
 
 Cent is still a ledger-focused accounting app centered around books, bills, categories, tags, budgets, and statistics.
 
-This upgrade does not rewrite the bill business layer. Instead, it adds a MySQL endpoint on top of the existing storage abstraction, so these capabilities remain intact:
+This upgrade does not rewrite the bill business layer. Instead, it adds a PostgreSQL endpoint on top of the existing storage abstraction, so these capabilities remain intact:
 
 - Multiple books
 - Local IndexedDB cache
@@ -25,7 +25,7 @@ This upgrade does not rewrite the bill business layer. Instead, it adds a MySQL 
 
 ## What Was Upgraded
 
-### 1. Added a MySQL backend
+### 1. Added a PostgreSQL backend
 
 The backend lives in [`server/`](./server) and is responsible for:
 
@@ -33,7 +33,7 @@ The backend lives in [`server/`](./server) and is responsible for:
 - Book and membership management
 - Bill and metadata persistence
 - Attachment storage
-- Automatic MySQL schema initialization
+- Automatic PostgreSQL schema initialization
 
 Key files:
 
@@ -42,16 +42,16 @@ Key files:
 - [`server/repository.mjs`](./server/repository.mjs)
 - [`server/auth.mjs`](./server/auth.mjs)
 
-### 2. Added a MySQL storage endpoint in the frontend
+### 2. Added a PostgreSQL storage endpoint in the frontend
 
-The frontend integrates MySQL through the existing storage abstraction. Main files:
+The frontend integrates PostgreSQL through the existing storage abstraction. Main files:
 
-- [`src/api/endpoints/mysql/index.ts`](./src/api/endpoints/mysql/index.ts)
-- [`src/api/endpoints/mysql/client.ts`](./src/api/endpoints/mysql/client.ts)
-- [`src/api/endpoints/mysql/storage.ts`](./src/api/endpoints/mysql/storage.ts)
-- [`src/api/endpoints/mysql/auth.ts`](./src/api/endpoints/mysql/auth.ts)
+- [`src/api/endpoints/postgres/index.ts`](./src/api/endpoints/postgres/index.ts)
+- [`src/api/endpoints/postgres/client.ts`](./src/api/endpoints/postgres/client.ts)
+- [`src/api/endpoints/postgres/storage.ts`](./src/api/endpoints/postgres/storage.ts)
+- [`src/api/endpoints/postgres/auth.ts`](./src/api/endpoints/postgres/auth.ts)
 
-Local cache and sync state handling are still kept on the client side. MySQL is used as the remote persistence layer.
+Local cache and sync state handling are still kept on the client side. PostgreSQL is used as the remote persistence layer.
 
 ### 3. Added username/password login entry points
 
@@ -78,7 +78,7 @@ The project now includes:
 ```text
 .
 ├─ src/                      # Frontend React + Vite code
-├─ server/                   # Node.js + MySQL API
+├─ server/                   # Node.js + PostgreSQL API
 ├─ docker/nginx/             # Nginx reverse proxy config
 ├─ docs/                     # Extra docs
 ├─ Dockerfile                # Frontend production image
@@ -86,13 +86,18 @@ The project now includes:
 └─ docker-compose.yml        # Default deployment orchestration
 ```
 
+Additional docs:
+
+- [`docs/postgresql-self-host.md`](./docs/postgresql-self-host.md)
+- [`docs/postgresql-migration-todo.md`](./docs/postgresql-migration-todo.md)
+
 ## Local Development
 
 ### Requirements
 
 - Node.js 20+
 - pnpm
-- MySQL 8+
+- PostgreSQL 15+
 
 ### Frontend environment variables
 
@@ -105,14 +110,14 @@ cp .env.example .env.local
 Important defaults:
 
 ```env
-VITE_MYSQL_API_HOST="/api/mysql"
-VITE_MYSQL_PROXY_TARGET="http://127.0.0.1:8787"
+VITE_POSTGRES_API_HOST="/api/postgres"
+VITE_POSTGRES_PROXY_TARGET="http://127.0.0.1:8787"
 ```
 
 This means:
 
-- During local `vite dev`, `/api/mysql` is proxied to `127.0.0.1:8787`
-- In Docker deployment, the frontend still uses `/api/mysql`, and Nginx forwards it to the API container
+- During local `vite dev`, `/api/postgres` is proxied to `127.0.0.1:8787`
+- In Docker deployment, the frontend still uses `/api/postgres`, and Nginx forwards it to the API container
 
 ### Backend environment variables
 
@@ -122,14 +127,14 @@ Copy [`server/.env.example`](./server/.env.example):
 cp server/.env.example server/.env
 ```
 
-Then update the local MySQL connection:
+Then update the local PostgreSQL connection:
 
 ```env
-MYSQL_HOST=127.0.0.1
-MYSQL_PORT=3306
-MYSQL_USER=root
-MYSQL_PASSWORD=replace-me
-MYSQL_DATABASE=cent
+POSTGRES_HOST=127.0.0.1
+POSTGRES_PORT=5432
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=replace-me
+POSTGRES_DATABASE=cent
 ```
 
 ### Start locally
@@ -143,9 +148,9 @@ pnpm dev
 After startup:
 
 - Frontend: `http://localhost:5173`
-- Backend: `http://127.0.0.1:8787/api/mysql`
+- Backend: `http://127.0.0.1:8787/api/postgres`
 
-Open the login page and use `Register account` or `Username/password login` to enter the MySQL flow.
+Open the login page and use `Register account` or `Username/password login` to enter the PostgreSQL flow.
 
 ## Docker Deployment
 
@@ -153,9 +158,9 @@ Open the login page and use `Register account` or `Username/password login` to e
 
 `docker-compose.yml` starts three services:
 
-- `mysql`: MySQL 8 container with data stored in the `mysql-data` volume
+- `postgres`: PostgreSQL container with data stored in the `postgres-data` volume
 - `api`: Node.js API container for auth, books, bills, and attachments
-- `web`: Nginx container serving the frontend and proxying `/api/mysql`
+- `web`: Nginx container serving the frontend and proxying `/api/postgres`
 
 ### Step 1: prepare environment variables
 
@@ -170,19 +175,20 @@ At minimum, update these values:
 ```env
 WEB_PORT=8080
 
-MYSQL_ROOT_PASSWORD=replace-with-a-strong-root-password
-MYSQL_DATABASE=cent
-MYSQL_USER=cent
-MYSQL_PASSWORD=replace-with-a-strong-app-password
+POSTGRES_PASSWORD=replace-with-a-strong-postgres-password
+POSTGRES_DATABASE=cent
+POSTGRES_USER=cent
 
-MYSQL_API_AUTH_SECRET=replace-with-a-long-random-secret
-MYSQL_API_CORS_ORIGIN=http://localhost:8080
+POSTGRES_API_AUTH_SECRET=replace-with-a-long-random-secret
+POSTGRES_API_CORS_ORIGIN=http://localhost:8080
 ```
 
 Notes:
 
-- `MYSQL_API_AUTH_SECRET` must be replaced with a strong random string
-- `MYSQL_API_CORS_ORIGIN` must match the actual frontend address
+- `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DATABASE` are the shared database credentials for both `postgres` and `api`
+- `docker-compose.yml` maps the same database name to `POSTGRES_DB` for the PostgreSQL container and `POSTGRES_DATABASE` for the API container
+- `POSTGRES_API_AUTH_SECRET` must be replaced with a strong random string
+- `POSTGRES_API_CORS_ORIGIN` must match the actual frontend address
 - If you later use a domain name, update it here as well
 
 ### Step 2: build and start
@@ -218,7 +224,7 @@ View logs:
 ```bash
 docker compose logs -f web
 docker compose logs -f api
-docker compose logs -f mysql
+docker compose logs -f postgres
 ```
 
 Stop services:
@@ -233,15 +239,15 @@ Remove containers and wipe database data:
 docker compose down -v
 ```
 
-`docker compose down -v` removes the MySQL volume and is irreversible unless you have a backup.
+`docker compose down -v` removes the PostgreSQL volume and is irreversible unless you have a backup.
 
 ## Production Recommendations
 
 The default Docker setup is enough to boot the project, but for long-term use you should still:
 
 - Use a domain and terminate HTTPS at Nginx or an upstream gateway
-- Replace all default passwords and `MYSQL_API_AUTH_SECRET`
-- Back up the MySQL volume regularly
+- Replace all default passwords and `POSTGRES_API_AUTH_SECRET`
+- Back up the PostgreSQL volume regularly
 - Move attachments to object storage later if attachment volume grows
 
 ## Updating After You Push to GitHub
@@ -286,7 +292,7 @@ git merge upstream/main
 If merge conflicts happen, check these areas first:
 
 - `server/`
-- `src/api/endpoints/mysql/`
+- `src/api/endpoints/postgres/`
 - `src/components/login/index.tsx`
 - `src/components/settings/user.tsx`
 - `Dockerfile`
@@ -312,15 +318,10 @@ docker compose up -d --build
 
 ## What Has Been Verified
 
-This version has already been validated with:
+This version is validated with:
 
 - `npm run lint`
 - `npm run build`
-- MySQL registration
-- MySQL login
-- Book creation
-- Browser-side bill creation
-- Bill sync into MySQL
 
 ## License
 

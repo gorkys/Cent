@@ -1,4 +1,4 @@
-# MySQL Migration TODO
+# PostgreSQL Migration TODO
 
 ## Done
 
@@ -6,17 +6,14 @@
 - [x] Read the app structure, current storage abstraction, and main business flow.
 - [x] Confirm the current architecture is `Vite + React + IndexedDB cache + pluggable sync endpoints`.
 - [x] Decide the migration strategy:
-  Keep the existing front-end business layer and add a real MySQL backend plus a new `mysql` sync endpoint.
-
-## In Progress
-
-- [ ] Add a self-hosted Node.js API for MySQL persistence.
-- [ ] Add username/password registration and login.
-- [ ] Add book, collaborator, asset, and batch-sync APIs.
-- [ ] Add a `mysql` endpoint on the front end and reuse the existing IndexedDB cache.
-- [ ] Add MySQL login/register entry points to the login UI.
-- [ ] Remove GitHub-specific UI assumptions when the active endpoint is MySQL.
-- [ ] Add environment variables and deployment documentation.
+  Keep the existing front-end business layer and add a real PostgreSQL backend plus a new `postgres` sync endpoint.
+- [x] Add a self-hosted Node.js API for PostgreSQL persistence.
+- [x] Add username/password registration and login.
+- [x] Add book, collaborator, asset, and batch-sync APIs.
+- [x] Add a `postgres` endpoint on the front end and reuse the existing IndexedDB cache.
+- [x] Add PostgreSQL login/register entry points to the login UI.
+- [x] Remove old legacy naming from the remaining frontend, deployment, and documentation entry points.
+- [x] Add environment variables and deployment documentation.
 
 ## Verify
 

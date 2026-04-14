@@ -32,6 +32,7 @@ import {
     toUserInfoPayload,
 } from "./repository.mjs";
 
+const API_BASE_PATH = "/api/postgres";
 const matchRoute = (pathname, expression) => pathname.match(expression)?.groups;
 
 const withStatus = (message, statusCode) => {
@@ -64,7 +65,7 @@ const requireUser = async (request) => {
 const buildAuthResponse = (requestUrl, user) => ({
     token: createAccessToken(user),
     user: toUserInfoPayload(user),
-    apiBaseUrl: `${getPublicBaseUrl(requestUrl)}/api/mysql`,
+    apiBaseUrl: `${getPublicBaseUrl(requestUrl)}${API_BASE_PATH}`,
 });
 
 const handleRegister = async (request, response, requestUrl) => {
@@ -122,34 +123,37 @@ const server = http.createServer(async (request, response) => {
     const pathname = requestUrl.pathname;
 
     try {
-        if (request.method === "GET" && pathname === "/api/mysql/health") {
+        if (request.method === "GET" && pathname === `${API_BASE_PATH}/health`) {
             json(response, 200, { ok: true });
             return;
         }
 
         if (
             request.method === "POST" &&
-            pathname === "/api/mysql/auth/register"
+            pathname === `${API_BASE_PATH}/auth/register`
         ) {
             await handleRegister(request, response, requestUrl);
             return;
         }
 
-        if (request.method === "POST" && pathname === "/api/mysql/auth/login") {
+        if (
+            request.method === "POST" &&
+            pathname === `${API_BASE_PATH}/auth/login`
+        ) {
             await handleLogin(request, response, requestUrl);
             return;
         }
 
         const user = await requireUser(request);
 
-        if (request.method === "GET" && pathname === "/api/mysql/me") {
+        if (request.method === "GET" && pathname === `${API_BASE_PATH}/me`) {
             json(response, 200, { user: toUserInfoPayload(user) });
             return;
         }
 
         const userMatch = matchRoute(
             pathname,
-            /^\/api\/mysql\/users\/(?<userId>[^/]+)$/,
+            /^\/api\/postgres\/users\/(?<userId>[^/]+)$/,
         );
         if (request.method === "GET" && userMatch) {
             const target = await findUserById(userMatch.userId);
@@ -160,13 +164,13 @@ const server = http.createServer(async (request, response) => {
             return;
         }
 
-        if (request.method === "GET" && pathname === "/api/mysql/books") {
+        if (request.method === "GET" && pathname === `${API_BASE_PATH}/books`) {
             const books = await listBooksForUser(user.id);
             json(response, 200, { books });
             return;
         }
 
-        if (request.method === "POST" && pathname === "/api/mysql/books") {
+        if (request.method === "POST" && pathname === `${API_BASE_PATH}/books`) {
             const body = await readJsonBody(request);
             const name = requireString(body.name, "name", { min: 1, max: 128 });
             const book = await createBook({ userId: user.id, name });
@@ -174,7 +178,7 @@ const server = http.createServer(async (request, response) => {
             return;
         }
 
-        if (request.method === "POST" && pathname === "/api/mysql/assets") {
+        if (request.method === "POST" && pathname === `${API_BASE_PATH}/assets`) {
             const body = await readJsonBody(request);
             const bookId = requireString(body.bookId, "bookId", {
                 min: 1,
@@ -210,7 +214,7 @@ const server = http.createServer(async (request, response) => {
 
         const assetMatch = matchRoute(
             pathname,
-            /^\/api\/mysql\/assets\/(?<assetId>[^/]+)$/,
+            /^\/api\/postgres\/assets\/(?<assetId>[^/]+)$/,
         );
         if (request.method === "GET" && assetMatch) {
             const asset = await getAsset({
@@ -228,7 +232,7 @@ const server = http.createServer(async (request, response) => {
 
         const bootstrapMatch = matchRoute(
             pathname,
-            /^\/api\/mysql\/books\/(?<bookId>[^/]+)\/bootstrap$/,
+            /^\/api\/postgres\/books\/(?<bookId>[^/]+)\/bootstrap$/,
         );
         if (request.method === "GET" && bootstrapMatch) {
             const snapshot = await getBookSnapshot({
@@ -241,7 +245,7 @@ const server = http.createServer(async (request, response) => {
 
         const collaboratorsMatch = matchRoute(
             pathname,
-            /^\/api\/mysql\/books\/(?<bookId>[^/]+)\/collaborators$/,
+            /^\/api\/postgres\/books\/(?<bookId>[^/]+)\/collaborators$/,
         );
         if (request.method === "GET" && collaboratorsMatch) {
             const collaborators = await listCollaborators({
@@ -268,7 +272,7 @@ const server = http.createServer(async (request, response) => {
 
         const batchMatch = matchRoute(
             pathname,
-            /^\/api\/mysql\/books\/(?<bookId>[^/]+)\/batch$/,
+            /^\/api\/postgres\/books\/(?<bookId>[^/]+)\/batch$/,
         );
         if (request.method === "POST" && batchMatch) {
             const body = await readJsonBody(request);
@@ -286,7 +290,7 @@ const server = http.createServer(async (request, response) => {
 
         const deleteMatch = matchRoute(
             pathname,
-            /^\/api\/mysql\/books\/(?<bookId>[^/]+)$/,
+            /^\/api\/postgres\/books\/(?<bookId>[^/]+)$/,
         );
         if (request.method === "DELETE" && deleteMatch) {
             const deleted = await deleteBook({
@@ -313,6 +317,6 @@ await ensureSchema();
 
 server.listen(config.port, config.host, () => {
     console.log(
-        `Cent MySQL API listening on http://${config.host}:${config.port}/api/mysql`,
+        `Cent PostgreSQL API listening on http://${config.host}:${config.port}${API_BASE_PATH}`,
     );
 });

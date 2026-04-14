@@ -3,12 +3,12 @@ import { Scheduler } from "@/database/scheduler";
 import { BillIndexedDBStorage } from "@/database/storage";
 import type { SyncEndpointFactory } from "../type";
 import {
-    clearMysqlSession,
-    createSessionMysqlClient,
-    loginWithMysql,
-    registerWithMysql,
+    clearPostgresSession,
+    createSessionPostgresClient,
+    loginWithPostgres,
+    registerWithPostgres,
 } from "./auth";
-import { MysqlStorage } from "./storage";
+import { PostgresStorage } from "./storage";
 
 const inviteCollaborator = async (modal: Modal) => {
     const username = (await modal.prompt({
@@ -21,16 +21,16 @@ const inviteCollaborator = async (modal: Modal) => {
     return username?.trim();
 };
 
-export const MysqlEndpoint: SyncEndpointFactory & {
+export const PostgresEndpoint: SyncEndpointFactory & {
     register: (ctx: { modal: Modal }) => Promise<void>;
 } = {
-    type: "mysql",
-    name: "MySQL",
-    login: loginWithMysql,
-    register: registerWithMysql,
+    type: "postgres",
+    name: "PostgreSQL",
+    login: loginWithPostgres,
+    register: registerWithPostgres,
     init: ({ modal }) => {
-        const client = createSessionMysqlClient();
-        const repo = new MysqlStorage({
+        const client = createSessionPostgresClient();
+        const repo = new PostgresStorage({
             storage: (name) => new BillIndexedDBStorage(`book-${name}`),
             client,
         });
@@ -42,7 +42,7 @@ export const MysqlEndpoint: SyncEndpointFactory & {
         return {
             logout: async () => {
                 await repo.detach();
-                clearMysqlSession();
+                clearPostgresSession();
             },
             getUserInfo: repo.getUserInfo.bind(repo),
             getCollaborators: repo.getCollaborators.bind(repo),

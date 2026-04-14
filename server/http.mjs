@@ -59,4 +59,4 @@ export const getRequestUrl = (request) => {
 };
 
 export const getAssetUrl = (requestUrl, assetId) =>
-    `${getPublicBaseUrl(requestUrl)}/api/mysql/assets/${assetId}`;
+    `${getPublicBaseUrl(requestUrl)}/api/postgres/assets/${assetId}`;

@@ -112,7 +112,7 @@ export default function Login() {
                                         {t("or-use-an-exist-token")}
                                     </button>
                                 </div>
-                                {/* Web DAV */}
+                                {/* PostgreSQL */}
                                 <div>
                                     <button
                                         type="button"
@@ -120,23 +120,23 @@ export default function Login() {
                                         onClick={async () => {
                                             const StorageAPI =
                                                 await loadStorageAPI();
-                                            StorageAPI.loginWith("mysql");
+                                            StorageAPI.loginWith("postgres");
                                         }}
                                     >
                                         <i className="icon-[mdi--database-cog-outline]"></i>
                                         <div className="flex-1">
-                                            {t("login-with-mysql")}
+                                            {t("login-with-postgres")}
                                         </div>
                                     </button>
                                     <button
                                         type="button"
                                         className="underline text-xs cursor-pointer"
                                         onClick={async () => {
-                                            const { MysqlEndpoint } =
+                                            const { PostgresEndpoint } =
                                                 await import(
-                                                    "@/api/endpoints/mysql"
+                                                    "@/api/endpoints/postgres"
                                                 );
-                                            await MysqlEndpoint.register({
+                                            await PostgresEndpoint.register({
                                                 modal,
                                             });
                                         }}

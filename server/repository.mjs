@@ -40,7 +40,7 @@ const toEntry = (row) => ({
 });
 
 export const findUserByUsername = async (username) => {
-    const [rows] = await query(
+    const { rows } = await query(
         `
         SELECT id, username, password_hash, display_name, avatar_url
         FROM users
@@ -53,7 +53,7 @@ export const findUserByUsername = async (username) => {
 };
 
 export const findUserById = async (id) => {
-    const [rows] = await query(
+    const { rows } = await query(
         `
         SELECT id, username, display_name, avatar_url
         FROM users
@@ -66,18 +66,19 @@ export const findUserById = async (id) => {
 };
 
 export const createUser = async ({ username, passwordHash, displayName }) => {
-    const [result] = await query(
+    const { rows } = await query(
         `
         INSERT INTO users (username, password_hash, display_name, avatar_url)
         VALUES (?, ?, ?, ?)
+        RETURNING id
         `,
         [username, passwordHash, displayName, "/icon.png"],
     );
-    return await findUserById(result.insertId);
+    return await findUserById(rows[0]?.id);
 };
 
 export const listBooksForUser = async (userId) => {
-    const [rows] = await query(
+    const { rows } = await query(
         `
         SELECT b.id, b.name
         FROM books b
@@ -91,7 +92,7 @@ export const listBooksForUser = async (userId) => {
 };
 
 export const getBookForUser = async (bookId, userId) => {
-    const [rows] = await query(
+    const { rows } = await query(
         `
         SELECT b.id, b.name, b.owner_id, bm.role
         FROM books b
@@ -146,7 +147,7 @@ export const getBookSnapshot = async ({ bookId, userId }) => {
         error.statusCode = 404;
         throw error;
     }
-    const [bookRows] = await query(
+    const { rows: bookRows } = await query(
         `
         SELECT meta_json
         FROM books
@@ -155,7 +156,7 @@ export const getBookSnapshot = async ({ bookId, userId }) => {
         `,
         [bookId],
     );
-    const [entryRows] = await query(
+    const { rows: entryRows } = await query(
         `
         SELECT
             id,
@@ -191,7 +192,7 @@ export const listCollaborators = async ({ bookId, userId }) => {
         error.statusCode = 404;
         throw error;
     }
-    const [rows] = await query(
+    const { rows } = await query(
         `
         SELECT u.id, u.username, u.display_name, u.avatar_url, bm.role
         FROM book_members bm
@@ -226,7 +227,8 @@ export const addCollaborator = async ({ bookId, userId, username }) => {
         `
         INSERT INTO book_members (book_id, user_id, role)
         VALUES (?, ?, 'editor')
-        ON DUPLICATE KEY UPDATE role = VALUES(role)
+        ON CONFLICT (book_id, user_id)
+        DO UPDATE SET role = EXCLUDED.role
         `,
         [bookId, target.id],
     );
@@ -258,7 +260,7 @@ export const createAsset = async ({
 };
 
 export const getAsset = async ({ assetId, userId }) => {
-    const [rows] = await query(
+    const { rows } = await query(
         `
         SELECT a.id, a.file_name, a.mime_type, a.blob_data
         FROM assets a
@@ -331,19 +333,19 @@ export const applyBookActions = async ({ bookId, userId, actions }) => {
                     updated_at
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE
-                    creator_id = VALUES(creator_id),
-                    type = VALUES(type),
-                    category_id = VALUES(category_id),
-                    comment = VALUES(comment),
-                    amount = VALUES(amount),
-                    occurred_at = VALUES(occurred_at),
-                    images_json = VALUES(images_json),
-                    location_json = VALUES(location_json),
-                    tag_ids_json = VALUES(tag_ids_json),
-                    currency_json = VALUES(currency_json),
-                    extra_json = VALUES(extra_json),
-                    updated_at = VALUES(updated_at)
+                ON CONFLICT (id) DO UPDATE SET
+                    creator_id = EXCLUDED.creator_id,
+                    type = EXCLUDED.type,
+                    category_id = EXCLUDED.category_id,
+                    comment = EXCLUDED.comment,
+                    amount = EXCLUDED.amount,
+                    occurred_at = EXCLUDED.occurred_at,
+                    images_json = EXCLUDED.images_json,
+                    location_json = EXCLUDED.location_json,
+                    tag_ids_json = EXCLUDED.tag_ids_json,
+                    currency_json = EXCLUDED.currency_json,
+                    extra_json = EXCLUDED.extra_json,
+                    updated_at = EXCLUDED.updated_at
                 `,
                 [
                     value.id,

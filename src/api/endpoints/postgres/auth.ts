@@ -1,33 +1,33 @@
 import type { Modal } from "@/components/modal";
-import { createMysqlClient } from "./client";
+import { createPostgresClient } from "./client";
 
-const MYSQL_API_BASE_URL_KEY = "mysql_api_base_url";
-const MYSQL_ACCESS_TOKEN_KEY = "mysql_access_token";
+const POSTGRES_API_BASE_URL_KEY = "postgres_api_base_url";
+const POSTGRES_ACCESS_TOKEN_KEY = "postgres_access_token";
 const SYNC_ENDPOINT_KEY = "SYNC_ENDPOINT";
-const MYSQL_ENDPOINT_TYPE = "mysql";
+const POSTGRES_ENDPOINT_TYPE = "postgres";
 
 const trimSlash = (value: string) => value.replace(/\/+$/, "");
 
 const getDefaultApiBaseUrl = () => {
-    const stored = localStorage.getItem(MYSQL_API_BASE_URL_KEY);
+    const stored = localStorage.getItem(POSTGRES_API_BASE_URL_KEY);
     if (stored) {
         return trimSlash(stored);
     }
-    const envValue = import.meta.env.VITE_MYSQL_API_HOST;
+    const envValue = import.meta.env.VITE_POSTGRES_API_HOST;
     if (envValue) {
         return trimSlash(envValue);
     }
-    return `${window.location.origin}/api/mysql`;
+    return `${window.location.origin}/api/postgres`;
 };
 
-export type MysqlSession = {
+export type PostgresSession = {
     apiBaseUrl: string;
     accessToken: string;
 };
 
-export const getMysqlSession = (): MysqlSession | undefined => {
-    const apiBaseUrl = localStorage.getItem(MYSQL_API_BASE_URL_KEY);
-    const accessToken = localStorage.getItem(MYSQL_ACCESS_TOKEN_KEY);
+export const getPostgresSession = (): PostgresSession | undefined => {
+    const apiBaseUrl = localStorage.getItem(POSTGRES_API_BASE_URL_KEY);
+    const accessToken = localStorage.getItem(POSTGRES_ACCESS_TOKEN_KEY);
     if (!apiBaseUrl || !accessToken) {
         return undefined;
     }
@@ -37,21 +37,25 @@ export const getMysqlSession = (): MysqlSession | undefined => {
     };
 };
 
-export const clearMysqlSession = () => {
-    localStorage.removeItem(MYSQL_API_BASE_URL_KEY);
-    localStorage.removeItem(MYSQL_ACCESS_TOKEN_KEY);
+export const clearPostgresSession = () => {
+    localStorage.removeItem(POSTGRES_API_BASE_URL_KEY);
+    localStorage.removeItem(POSTGRES_ACCESS_TOKEN_KEY);
 };
 
-export const saveMysqlSession = (session: MysqlSession) => {
-    localStorage.setItem(SYNC_ENDPOINT_KEY, MYSQL_ENDPOINT_TYPE);
-    localStorage.setItem(MYSQL_API_BASE_URL_KEY, trimSlash(session.apiBaseUrl));
-    localStorage.setItem(MYSQL_ACCESS_TOKEN_KEY, session.accessToken);
+export const savePostgresSession = (session: PostgresSession) => {
+    localStorage.setItem(SYNC_ENDPOINT_KEY, POSTGRES_ENDPOINT_TYPE);
+    localStorage.setItem(
+        POSTGRES_API_BASE_URL_KEY,
+        trimSlash(session.apiBaseUrl),
+    );
+    localStorage.setItem(POSTGRES_ACCESS_TOKEN_KEY, session.accessToken);
 };
 
-export const createSessionMysqlClient = () => {
-    return createMysqlClient({
-        apiBaseUrl: getMysqlSession()?.apiBaseUrl ?? getDefaultApiBaseUrl(),
-        getAccessToken: () => getMysqlSession()?.accessToken,
+export const createSessionPostgresClient = () => {
+    return createPostgresClient({
+        apiBaseUrl:
+            getPostgresSession()?.apiBaseUrl ?? getDefaultApiBaseUrl(),
+        getAccessToken: () => getPostgresSession()?.accessToken,
     });
 };
 
@@ -68,10 +72,10 @@ const askInput = async (
 };
 
 const authenticate = async (modal: Modal, mode: "login" | "register") => {
-    const apiBaseUrl = await askInput(modal, "请输入 MySQL API 地址", {
+    const apiBaseUrl = await askInput(modal, "请输入 PostgreSQL API 地址", {
         type: "text",
         defaultValue: getDefaultApiBaseUrl(),
-        placeholder: "http://localhost:8787/api/mysql",
+        placeholder: "http://localhost:8787/api/postgres",
     });
     if (!apiBaseUrl) {
         return;
@@ -99,7 +103,7 @@ const authenticate = async (modal: Modal, mode: "login" | "register") => {
               })
             : undefined;
 
-    const client = createMysqlClient({
+    const client = createPostgresClient({
         apiBaseUrl,
         getAccessToken: () => undefined,
     });
@@ -118,7 +122,7 @@ const authenticate = async (modal: Modal, mode: "login" | "register") => {
                       username,
                       password,
                   });
-        saveMysqlSession({
+        savePostgresSession({
             apiBaseUrl: result.apiBaseUrl || apiBaseUrl,
             accessToken: result.token,
         });
@@ -130,10 +134,10 @@ const authenticate = async (modal: Modal, mode: "login" | "register") => {
     }
 };
 
-export const loginWithMysql = async ({ modal }: { modal: Modal }) => {
+export const loginWithPostgres = async ({ modal }: { modal: Modal }) => {
     return await authenticate(modal, "login");
 };
 
-export const registerWithMysql = async ({ modal }: { modal: Modal }) => {
+export const registerWithPostgres = async ({ modal }: { modal: Modal }) => {
     return await authenticate(modal, "register");
 };

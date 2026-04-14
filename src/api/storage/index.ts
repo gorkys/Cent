@@ -3,8 +3,8 @@ import modal from "@/components/modal";
 import { EmptyEndpoint } from "../endpoints/empty";
 import { GiteeEndpoint } from "../endpoints/gitee";
 import { GithubEndpoint } from "../endpoints/github";
-import { MysqlEndpoint } from "../endpoints/mysql";
 import { OfflineEndpoint } from "../endpoints/offline";
+import { PostgresEndpoint } from "../endpoints/postgres";
 import { S3Endpoint } from "../endpoints/s3";
 import { WebDAVEndpoint } from "../endpoints/web-dav";
 import type { Exposed } from "./worker";
@@ -12,7 +12,7 @@ import DeferredWorker from "./worker?worker";
 
 const APIS = {
     github: GithubEndpoint,
-    mysql: MysqlEndpoint,
+    postgres: PostgresEndpoint,
     offline: OfflineEndpoint,
     webdav: WebDAVEndpoint,
     gitee: GiteeEndpoint,
@@ -34,8 +34,8 @@ export const StorageAPI = {
         if (type === "github") {
             return GithubEndpoint.login({ modal });
         }
-        if (type === "mysql") {
-            return MysqlEndpoint.login({ modal });
+        if (type === "postgres") {
+            return PostgresEndpoint.login({ modal });
         }
         if (type === "gitee") {
             return GiteeEndpoint.login({ modal });

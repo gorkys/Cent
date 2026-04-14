@@ -1,6 +1,6 @@
-# MySQL Self-Host Guide
+# PostgreSQL Self-Host Guide
 
-MySQL 自托管方案已经整合进根目录 [`README.md`](../README.md)。
+PostgreSQL 自托管方案已经整合进根目录 [`README.md`](../README.md) 和 [`README_EN.md`](../README_EN.md)。
 
 优先查看以下章节：
 

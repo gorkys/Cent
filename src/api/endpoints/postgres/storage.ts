@@ -6,13 +6,13 @@ import {
     type StashStorage,
 } from "@/database/stash";
 import type { Bill, GlobalMeta } from "@/ledger/type";
-import type { createMysqlClient } from "./client";
+import type { createPostgresClient } from "./client";
 
-type MysqlClient = ReturnType<typeof createMysqlClient>;
+type PostgresClient = ReturnType<typeof createPostgresClient>;
 
-type MysqlStorageConfig = {
+type PostgresStorageConfig = {
     storage: (storeFullName: string) => StashStorage;
-    client: MysqlClient;
+    client: PostgresClient;
 };
 
 const isAbortError = (error: unknown) =>
@@ -24,10 +24,10 @@ const ensureNotAborted = (signal?: AbortSignal) => {
     }
 };
 
-export class MysqlStorage {
-    protected readonly config: MysqlStorageConfig;
+export class PostgresStorage {
+    protected readonly config: PostgresStorageConfig;
 
-    constructor(config: MysqlStorageConfig) {
+    constructor(config: PostgresStorageConfig) {
         this.config = config;
     }
 

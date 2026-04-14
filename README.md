@@ -1,20 +1,20 @@
 # Cent
 
-基于原版 [glink25/Cent](https://github.com/glink25/Cent) 改造的 MySQL 自托管版本。
+基于原版 [glink25/Cent](https://github.com/glink25/Cent) 改造的 PostgreSQL 自托管版本。
 
 这个版本保留了原项目的前端账本模型、IndexedDB 本地缓存、同步调度和统计分析能力，把默认自托管链路改成了：
 
 - `账号密码注册 / 登录`
-- `Node.js API + MySQL 持久化`
+- `Node.js API + PostgreSQL 持久化`
 - `Docker 一键编排部署`
 
-默认部署形态为 `nginx + frontend + api + mysql`。
+默认部署形态为 `nginx + frontend + api + postgres`。
 
 ## 项目定位
 
 Cent 仍然是一个以账本、账单、分类、标签、预算、统计为核心的前端记账应用。
 
-这次改造没有重写账单业务层，而是在原有存储抽象之上新增了 MySQL 端点，因此这些能力仍然保留：
+这次改造没有重写账单业务层，而是在原有存储抽象之上新增了 PostgreSQL 端点，因此这些能力仍然保留：
 
 - 多账本
 - 本地 IndexedDB 缓存
@@ -25,7 +25,7 @@ Cent 仍然是一个以账本、账单、分类、标签、预算、统计为核
 
 ## 本次升级了什么
 
-### 1. 新增 MySQL 后端
+### 1. 新增 PostgreSQL 后端
 
 后端目录在 [`server/`](./server)，主要职责：
 
@@ -33,7 +33,7 @@ Cent 仍然是一个以账本、账单、分类、标签、预算、统计为核
 - 账本与成员关系管理
 - 账单与元数据持久化
 - 附件存储
-- MySQL 自动建表
+- PostgreSQL 自动建表
 
 核心文件：
 
@@ -42,16 +42,16 @@ Cent 仍然是一个以账本、账单、分类、标签、预算、统计为核
 - [`server/repository.mjs`](./server/repository.mjs)
 - [`server/auth.mjs`](./server/auth.mjs)
 
-### 2. 前端新增 MySQL 存储端点
+### 2. 前端新增 PostgreSQL 存储端点
 
-前端通过已有的存储抽象接入 MySQL 模式，关键文件：
+前端通过已有的存储抽象接入 PostgreSQL 模式，关键文件：
 
-- [`src/api/endpoints/mysql/index.ts`](./src/api/endpoints/mysql/index.ts)
-- [`src/api/endpoints/mysql/client.ts`](./src/api/endpoints/mysql/client.ts)
-- [`src/api/endpoints/mysql/storage.ts`](./src/api/endpoints/mysql/storage.ts)
-- [`src/api/endpoints/mysql/auth.ts`](./src/api/endpoints/mysql/auth.ts)
+- [`src/api/endpoints/postgres/index.ts`](./src/api/endpoints/postgres/index.ts)
+- [`src/api/endpoints/postgres/client.ts`](./src/api/endpoints/postgres/client.ts)
+- [`src/api/endpoints/postgres/storage.ts`](./src/api/endpoints/postgres/storage.ts)
+- [`src/api/endpoints/postgres/auth.ts`](./src/api/endpoints/postgres/auth.ts)
 
-默认仍然保留本地缓存和同步状态管理，MySQL 负责远端持久化。
+默认仍然保留本地缓存和同步状态管理，PostgreSQL 负责远端持久化。
 
 ### 3. 登录页支持账号密码链路
 
@@ -78,7 +78,7 @@ Cent 仍然是一个以账本、账单、分类、标签、预算、统计为核
 ```text
 .
 ├─ src/                      # 前端 React + Vite 代码
-├─ server/                   # Node.js + MySQL API
+├─ server/                   # Node.js + PostgreSQL API
 ├─ docker/nginx/             # Nginx 反向代理配置
 ├─ docs/                     # 额外说明文档
 ├─ Dockerfile                # 前端生产镜像
@@ -86,13 +86,18 @@ Cent 仍然是一个以账本、账单、分类、标签、预算、统计为核
 └─ docker-compose.yml        # 默认部署编排
 ```
 
+补充文档：
+
+- [`docs/postgresql-self-host.md`](./docs/postgresql-self-host.md)
+- [`docs/postgresql-migration-todo.md`](./docs/postgresql-migration-todo.md)
+
 ## 本地开发
 
 ### 环境要求
 
 - Node.js 20+
 - pnpm
-- MySQL 8+
+- PostgreSQL 15+
 
 ### 前端环境变量
 
@@ -105,14 +110,14 @@ cp .env.example .env.local
 默认关键项：
 
 ```env
-VITE_MYSQL_API_HOST="/api/mysql"
-VITE_MYSQL_PROXY_TARGET="http://127.0.0.1:8787"
+VITE_POSTGRES_API_HOST="/api/postgres"
+VITE_POSTGRES_PROXY_TARGET="http://127.0.0.1:8787"
 ```
 
 这意味着：
 
-- 本地 `vite dev` 访问前端时，`/api/mysql` 会自动代理到 `127.0.0.1:8787`
-- Docker 部署时，前端也继续使用 `/api/mysql`，由 Nginx 反代到 API 容器
+- 本地 `vite dev` 访问前端时，`/api/postgres` 会自动代理到 `127.0.0.1:8787`
+- Docker 部署时，前端也继续使用 `/api/postgres`，由 Nginx 反代到 API 容器
 
 ### 后端环境变量
 
@@ -122,14 +127,14 @@ VITE_MYSQL_PROXY_TARGET="http://127.0.0.1:8787"
 cp server/.env.example server/.env
 ```
 
-然后根据你的本地 MySQL 修改：
+然后根据你的本地 PostgreSQL 修改：
 
 ```env
-MYSQL_HOST=127.0.0.1
-MYSQL_PORT=3306
-MYSQL_USER=root
-MYSQL_PASSWORD=replace-me
-MYSQL_DATABASE=cent
+POSTGRES_HOST=127.0.0.1
+POSTGRES_PORT=5432
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=replace-me
+POSTGRES_DATABASE=cent
 ```
 
 ### 启动方式
@@ -143,9 +148,9 @@ pnpm dev
 启动后：
 
 - 前端默认在 `http://localhost:5173`
-- 后端默认在 `http://127.0.0.1:8787/api/mysql`
+- 后端默认在 `http://127.0.0.1:8787/api/postgres`
 
-进入登录页后，选择 `注册账号` 或 `账号密码登录`，即可走 MySQL 链路。
+进入登录页后，选择 `注册账号` 或 `账号密码登录`，即可走 PostgreSQL 链路。
 
 ## Docker 部署
 
@@ -153,9 +158,9 @@ pnpm dev
 
 `docker-compose.yml` 会启动三个服务：
 
-- `mysql`: MySQL 8 容器，账本数据持久化到 `mysql-data` volume
+- `postgres`: PostgreSQL 容器，账本数据持久化到 `postgres-data` volume
 - `api`: Node.js API 容器，处理注册、登录、账本、账单、附件
-- `web`: Nginx 容器，提供静态前端并反代 `/api/mysql`
+- `web`: Nginx 容器，提供静态前端并反代 `/api/postgres`
 
 ### 第一步：准备环境变量
 
@@ -170,19 +175,20 @@ cp .env.docker.example .env
 ```env
 WEB_PORT=8080
 
-MYSQL_ROOT_PASSWORD=replace-with-a-strong-root-password
-MYSQL_DATABASE=cent
-MYSQL_USER=cent
-MYSQL_PASSWORD=replace-with-a-strong-app-password
+POSTGRES_PASSWORD=replace-with-a-strong-postgres-password
+POSTGRES_DATABASE=cent
+POSTGRES_USER=cent
 
-MYSQL_API_AUTH_SECRET=replace-with-a-long-random-secret
-MYSQL_API_CORS_ORIGIN=http://localhost:8080
+POSTGRES_API_AUTH_SECRET=replace-with-a-long-random-secret
+POSTGRES_API_CORS_ORIGIN=http://localhost:8080
 ```
 
 说明：
 
-- `MYSQL_API_AUTH_SECRET` 必须替换成强随机字符串
-- `MYSQL_API_CORS_ORIGIN` 要与你实际访问前端的地址一致
+- `POSTGRES_USER`、`POSTGRES_PASSWORD`、`POSTGRES_DATABASE` 是 `postgres` 和 `api` 共用的一组数据库凭据
+- `docker-compose.yml` 会把同一组数据库名分别映射给 PostgreSQL 容器的 `POSTGRES_DB` 和 API 容器的 `POSTGRES_DATABASE`
+- `POSTGRES_API_AUTH_SECRET` 必须替换成强随机字符串
+- `POSTGRES_API_CORS_ORIGIN` 要与你实际访问前端的地址一致
 - 如果以后挂域名，也在这里同步改掉
 
 ### 第二步：构建并启动
@@ -218,7 +224,7 @@ docker compose ps
 ```bash
 docker compose logs -f web
 docker compose logs -f api
-docker compose logs -f mysql
+docker compose logs -f postgres
 ```
 
 停止服务：
@@ -233,15 +239,15 @@ docker compose down
 docker compose down -v
 ```
 
-`docker compose down -v` 会删除 MySQL 数据卷，属于不可恢复操作，执行前请先确认。
+`docker compose down -v` 会删除 PostgreSQL 数据卷，属于不可恢复操作，执行前请先确认。
 
 ## 生产环境建议
 
 默认 Docker 方案已经能直接启动，但如果要长期使用，建议至少做这些配置：
 
 - 使用域名并通过 Nginx/外层网关接入 HTTPS
-- 修改所有默认密码和 `MYSQL_API_AUTH_SECRET`
-- 定期备份 MySQL volume
+- 修改所有默认密码和 `POSTGRES_API_AUTH_SECRET`
+- 定期备份 PostgreSQL volume
 - 如果附件很多，后续考虑把附件存储迁到对象存储
 
 ## 以后推到 GitHub 后怎么更新
@@ -286,7 +292,7 @@ git merge upstream/main
 如果 merge 过程中出现冲突，优先检查这些位置：
 
 - `server/`
-- `src/api/endpoints/mysql/`
+- `src/api/endpoints/postgres/`
 - `src/components/login/index.tsx`
 - `src/components/settings/user.tsx`
 - `Dockerfile`
@@ -312,15 +318,10 @@ docker compose up -d --build
 
 ## 已验证内容
 
-当前版本已经完成以下验证：
+当前版本会做以下验证：
 
 - `npm run lint`
 - `npm run build`
-- MySQL 注册
-- MySQL 登录
-- 创建账本
-- 浏览器新增账单
-- 账单同步写入 MySQL
 
 ## 许可证
 

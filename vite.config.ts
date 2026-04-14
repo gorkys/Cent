@@ -12,8 +12,8 @@ import svgr from "vite-plugin-svgr";
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd());
     const shouldAnalyze = process.env.ANALYZE === "true";
-    const mysqlProxyTarget =
-        env.VITE_MYSQL_PROXY_TARGET || "http://127.0.0.1:8787";
+    const postgresProxyTarget =
+        env.VITE_POSTGRES_PROXY_TARGET || "http://127.0.0.1:8787";
 
     const plugins: PluginOption[] = [
         Info(),
@@ -80,8 +80,8 @@ export default defineConfig(({ mode }) => {
         },
         server: {
             proxy: {
-                "/api/mysql": {
-                    target: mysqlProxyTarget,
+                "/api/postgres": {
+                    target: postgresProxyTarget,
                     changeOrigin: true,
                 },
                 "/google-api": {

@@ -1,6 +1,6 @@
 import { blobToBase64 } from "@/utils/file";
 
-export type MysqlAuthResponse = {
+export type PostgresAuthResponse = {
     token: string;
     user: {
         id: string;
@@ -25,7 +25,7 @@ type RequestOptions = {
 
 const trimSlash = (value: string) => value.replace(/\/+$/, "");
 
-export const createMysqlClient = ({
+export const createPostgresClient = ({
     apiBaseUrl,
     getAccessToken,
 }: ClientConfig) => {
@@ -81,7 +81,7 @@ export const createMysqlClient = ({
     return {
         apiBaseUrl: normalizedApiBaseUrl,
         async login(payload: { username: string; password: string }) {
-            return await request<MysqlAuthResponse>("/auth/login", {
+            return await request<PostgresAuthResponse>("/auth/login", {
                 method: "POST",
                 body: payload,
                 auth: false,
@@ -92,20 +92,20 @@ export const createMysqlClient = ({
             password: string;
             displayName?: string;
         }) {
-            return await request<MysqlAuthResponse>("/auth/register", {
+            return await request<PostgresAuthResponse>("/auth/register", {
                 method: "POST",
                 body: payload,
                 auth: false,
             });
         },
         async getMe() {
-            const result = await request<{ user: MysqlAuthResponse["user"] }>(
+            const result = await request<{ user: PostgresAuthResponse["user"] }>(
                 "/me",
             );
             return result.user;
         },
         async getUser(id: string) {
-            const result = await request<{ user: MysqlAuthResponse["user"] }>(
+            const result = await request<{ user: PostgresAuthResponse["user"] }>(
                 `/users/${id}`,
             );
             return result.user;
@@ -146,13 +146,13 @@ export const createMysqlClient = ({
         },
         async getCollaborators(bookId: string) {
             const result = await request<{
-                collaborators: MysqlAuthResponse["user"][];
+                collaborators: PostgresAuthResponse["user"][];
             }>(`/books/${bookId}/collaborators`);
             return result.collaborators;
         },
         async addCollaborator(bookId: string, username: string) {
             const result = await request<{
-                collaborator: MysqlAuthResponse["user"];
+                collaborator: PostgresAuthResponse["user"];
             }>(`/books/${bookId}/collaborators`, {
                 method: "POST",
                 body: { username },
