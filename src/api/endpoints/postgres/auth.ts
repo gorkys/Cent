@@ -16,13 +16,30 @@ const normalizeApiBaseUrl = (value: string) => {
     }
     try {
         const url = new URL(trimmed, window.location.origin);
+        const shouldUpgradeToHttps =
+            window.location.protocol === "https:" &&
+            url.protocol === "http:" &&
+            url.hostname === window.location.hostname &&
+            (!url.port ||
+                url.port === getDefaultPort("http:") ||
+                url.port === window.location.port);
+        if (shouldUpgradeToHttps) {
+            url.protocol = "https:";
+            if (
+                !window.location.port ||
+                window.location.port === getDefaultPort("https:")
+            ) {
+                url.port = "";
+            } else {
+                url.port = window.location.port;
+            }
+        }
         if (
             url.hostname === window.location.hostname &&
             url.protocol === window.location.protocol &&
             !url.port &&
             window.location.port &&
-            window.location.port !==
-                getDefaultPort(window.location.protocol)
+            window.location.port !== getDefaultPort(window.location.protocol)
         ) {
             url.port = window.location.port;
         }
@@ -77,8 +94,7 @@ export const savePostgresSession = (session: PostgresSession) => {
 
 export const createSessionPostgresClient = () => {
     return createPostgresClient({
-        apiBaseUrl:
-            getPostgresSession()?.apiBaseUrl ?? getDefaultApiBaseUrl(),
+        apiBaseUrl: getPostgresSession()?.apiBaseUrl ?? getDefaultApiBaseUrl(),
         getAccessToken: () => getPostgresSession()?.accessToken,
     });
 };

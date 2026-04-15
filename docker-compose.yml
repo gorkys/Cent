@@ -30,6 +30,8 @@ services:
         condition: service_healthy
     environment:
       POSTGRES_API_AUTH_SECRET: ${POSTGRES_API_AUTH_SECRET:-change-me-before-production-deploy}
+      POSTGRES_API_PUBLIC_BASE_URL: ${POSTGRES_API_PUBLIC_BASE_URL:-}
+      POSTGRES_API_CORS_ORIGIN: ${POSTGRES_API_CORS_ORIGIN:-*}
       POSTGRES_HOST: postgres
       <<: *postgres-shared-env
       POSTGRES_DATABASE: ${POSTGRES_DATABASE:-cent}
